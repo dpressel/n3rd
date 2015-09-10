@@ -192,24 +192,6 @@ public class FilterOps
         return output;
     }
 
-
-    private static double[][] unrollKernel1(Tensor kernels)
-    {
-        final int nK = kernels.dims[0];
-        final int kL = kernels.dims[1];
-        final int kW = kernels.dims[2];
-        final int eSz = kernels.dims[3];
-        double[][] filters = new double[eSz][nK * kW * kL];
-
-        int z = 0;
-        for (int ei = 0; ei < eSz; ++ei)
-        {
-
-        }
-
-        return filters;
-    }
-
     public static Tensor corr1MM(Tensor data, Tensor kernels, double[] biases)
     {
         final int iT = data.dims[1];
