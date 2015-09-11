@@ -60,13 +60,7 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.4.3</version>
         </dependency>
-
-        <dependency>
-            <groupId>medallia</groupId>
-            <artifactId>Word2VecJava</artifactId>
-            <version>1.0.1</version>
-        </dependency>
-
+        
         <dependency>
             <groupId>org.jblas</groupId>
             <artifactId>jblas</artifactId>
