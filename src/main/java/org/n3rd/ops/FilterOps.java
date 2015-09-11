@@ -139,59 +139,6 @@ public class FilterOps
         return weightGrads;
     }
 
-
-    // In this case, we have several feature maps, each is a kernel of
-
-    public static Tensor conv2(Tensor data, Tensor kernels, double[] biases)
-    {
-        final int dH = data.dims[1];
-        final int dW = data.dims[2];
-        final int nK = kernels.dims[0];
-        final int kL = kernels.dims[1];
-        final int kH = kernels.dims[2];
-        final int kW = kernels.dims[3];
-        final int oH = dH - kH + 1;
-        final int oW = dW - kW + 1;
-        Tensor output = new Tensor(nK, oH, oW);
-
-
-        for (int k = 0; k < nK; ++k)
-        {
-            int kbase = k * kL;
-            int obase = k * oH;
-
-            final double bias = biases == null ? 0.0 : biases[k];
-            for (int i = 0; i < oH; ++i)
-            {
-                int ibase = (obase + i) * oW;
-                for (int j = 0; j < oW; ++j)
-                {
-                    int outAddr = ibase + j;
-                    double acc = 0.;
-                    for (int l = 0; l < kL; ++l)
-                    {
-                        for (int m = 0; m < kH; ++m)
-                        {
-                            for (int n = 0; n < kW; ++n)
-                            {
-                                int dataAddr = (l * dH + i + m) * dW + j + n;
-                                int mh = kH - m - 1;
-                                int nw = kW - n - 1;
-                                int kernAddr = ((kbase + l) * kH + mh) * kW + nw;
-
-                                acc += data.d[dataAddr] * kernels.d[kernAddr];
-
-                            }
-                        }
-                    }
-                    output.d[outAddr] = acc + bias;
-
-                }
-            }
-        }
-        return output;
-    }
-
     public static Tensor corr1MM(Tensor data, Tensor kernels, double[] biases)
     {
         final int iT = data.dims[1];
@@ -419,6 +366,55 @@ public class FilterOps
         return output;
     }
 
+
+
+    // In this case, we have several feature maps, each is a kernel of
+
+    public static Tensor conv2(Tensor data, Tensor kernels, double[] biases)
+    {
+        final int dH = data.dims[1];
+        final int dW = data.dims[2];
+        final int nK = kernels.dims[0];
+        final int kL = kernels.dims[1];
+        final int kH = kernels.dims[2];
+        final int kW = kernels.dims[3];
+        final int oH = dH - kH + 1;
+        final int oW = dW - kW + 1;
+        Tensor output = new Tensor(nK, oH, oW);
+
+        for (int k = 0; k < nK; ++k)
+        {
+            int kbase = k * kL;
+            int obase = k * oH;
+
+            final double bias = biases == null ? 0.0 : biases[k];
+            for (int i = 0; i < oH; ++i)
+            {
+                int ibase = (obase + i) * oW;
+                for (int j = 0; j < oW; ++j)
+                {
+                    int outAddr = ibase + j;
+                    double acc = 0.;
+                    for (int l = 0; l < kL; ++l)
+                    {
+                        for (int m = 0; m < kH; ++m)
+                        {
+                            for (int n = 0; n < kW; ++n)
+                            {
+                                int dataAddr = (l * dH + i + m) * dW + j + n;
+                                int mh = kH - m - 1;
+                                int nw = kW - n - 1;
+                                int kernAddr = ((kbase + l) * kH + mh) * kW + nw;
+                                acc += data.d[dataAddr] * kernels.d[kernAddr];
+                            }
+                        }
+                    }
+                    output.d[outAddr] = acc + bias;
+                }
+            }
+        }
+        return output;
+    }
 
     public static Tensor corr2(Tensor data, Tensor kernels, double[] biases)
     {

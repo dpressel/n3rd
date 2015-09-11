@@ -74,7 +74,8 @@ public class SpatialConvolutionalLayer implements Layer
 
     public double rand()
     {
-        double stdv = 1. / Math.sqrt(input.dims[1] * input.dims[2]);
+        //double stdv = 1. / Math.sqrt(input.dims[1] * input.dims[2]);
+        double stdv = 1. / Math.sqrt(input.dims[1] * weights.dims[2] * weights.dims[3]);
         double stdv2 = stdv * 2;
         return Math.random() * stdv2 - stdv;
     }
@@ -88,7 +89,8 @@ public class SpatialConvolutionalLayer implements Layer
 
         double[] mx = dv.getX();
         input.d = mx;
-        Tensor output = FilterOps.corr2(input, weights, biases);
+        Tensor output = FilterOps.corr2(input, weights, null);//biases);
+
         return new DenseVectorN(output.d);
 
     }
@@ -112,18 +114,21 @@ public class SpatialConvolutionalLayer implements Layer
         final int zpH = iH + kH - 1;
         final int zpW = iW + kW - 1;
 
+        this.grads.reset(0.);
         Tensor zpChainGradCube = Tensor.embed(chainGradTensor, zpH - oH, zpW - oW);
 
         int nK = weights.dims[0];
 
         Tensor tWeights = Tensor.transposeWeight4D(weights);
 
+        // This is actually what is failing.  Why?  Probably a bug in transpose weight 4D?
         Tensor gradUps = FilterOps.conv2(zpChainGradCube, tWeights, null);
         for (int i = 0; i < gradUps.d.length; ++i)
         {
             this.grads.d[i] += gradUps.d[i];
         }
 
+        // This is correct, we know that the gradient of the weights is checking out
         Tensor gradWUps = FilterOps.corr2Weights(input, chainGradTensor);
 
 
@@ -140,6 +145,10 @@ public class SpatialConvolutionalLayer implements Layer
             }
         }
 
+
+        //// GRADIENT CHECK
+        ////gradCheck(chainGradTensor);
+        ////gradCheckX(chainGradTensor);
 
         return new DenseVectorN(this.grads.d);
     }
@@ -166,5 +175,99 @@ public class SpatialConvolutionalLayer implements Layer
     public double[] getBiasParams()
     {
         return new double[0];
+    }
+
+
+    void gradCheckX(Tensor outputLayerGradArray)
+    {
+
+        double sumX = 0.;
+        for (int i = 0; i < grads.d.length; ++i)
+        {
+            sumX += grads.d[i];
+        }
+
+        double sumNumGrad = 0.;
+        for (int i = 0; i < input.d.length; ++i)
+        {
+            double xd = input.d[i];
+            double xdp = xd + 1e-4;
+            double xdm = xd - 1e-4;
+
+            input.d[i] = xdp;
+            Tensor outputHigh = FilterOps.corr2(input, weights, biases);
+
+            input.d[i] = xdm;
+            Tensor outputLow = FilterOps.corr2(input, weights, biases);
+
+            input.d[i] = xd;
+            for (int j = 0; j < outputHigh.d.length; ++j)
+            {
+                double dxx = (outputHigh.d[j] - outputLow.d[j]) / (2 * 1e-4);
+                sumNumGrad += outputLayerGradArray.d[j] * dxx;
+            }
+        }
+        double absDelta = Math.abs(sumNumGrad - sumX);
+        if (absDelta > 1e-6)
+        {
+            System.out.println("X abs delta large: " + absDelta);
+        }
+
+    }
+
+    // When we shift parameters, isolating each, we get the gradient WRT the parameters
+    // In order to find the mathematical gradient, look at the
+    void gradCheck(Tensor chainGradTensor)
+    {
+
+
+        //Tensor output = FilterOps.corr2(input, weights, biases);
+
+        double sumNumGrad = 0.;
+        double sumGrad = 0.0;
+        for (int i = 0; i < gradsW.d.length; ++i)
+        {
+            sumGrad += this.gradsW.d[i];
+        }
+        // Each weight sees every x except xi < w.length
+
+        //weights = new Tensor(nK, kL, kW, embeddingSize);
+        int z = 0;
+        for (int k = 0; k < weights.dims[0]; ++k)
+        {
+            for (int l = 0; l < weights.dims[1]; ++l)
+            {
+                // kW
+                for (int i = 0; i < weights.dims[2]; ++i)
+                {
+                    for (int j = 0; j < weights.dims[3]; ++j)
+                    {
+                        double wd = weights.d[z];
+                        double wdp = wd + 1e-4;
+                        double wdm = wd - 1e-4;
+                        // first add it
+                        weights.d[z] = wdp;
+                        Tensor outputHigh = FilterOps.corr2(input, weights, biases);
+
+                        weights.d[z] = wdm;
+                        Tensor outputLow = FilterOps.corr2(input, weights, biases);
+
+                        weights.d[z] = wd;
+                        ++z;
+
+                        for (int w = 0; w < outputHigh.d.length; ++w)
+                        {
+                            double dxx = chainGradTensor.d[w] * (outputHigh.d[w] - outputLow.d[w]) / (2 * 1e-4);
+                            sumNumGrad += dxx;
+                        }
+                    }
+                }
+            }
+        }
+        double absDelta = Math.abs(sumNumGrad - sumGrad);
+        if (absDelta > 1e-6)
+        {
+            System.out.println("Abs delta large: " + absDelta);
+        }
     }
 }
