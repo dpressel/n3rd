@@ -171,4 +171,4 @@ for (int i = 0; i < params.epochs; ++i)
 
 }
 ```
-The underlying sgdtk library has good support for overlapped IO and processing, influenced by [Vowpal Wabbit](https://github.com/JohnLangford/vowpal_wabbit), which makes it easy to process large amounts of data that would not fit into memory.  This is the recommended usage, unlike the above toy examples
+The underlying sgdtk library has good support for overlapped IO and processing, influenced by [Vowpal Wabbit](https://github.com/JohnLangford/vowpal_wabbit), which makes it easy to process large amounts of data that would not fit into memory.  This is the recommended usage, unlike the above toy examples.  Note also that, unlike the sgdtk base, where we use a OvA MultiClassWeightModel for multi-class decisions, in n3rd, we are using a LogSoftMax with ClassNLLLoss instead to accomplish this without requiring that extra overhead.
