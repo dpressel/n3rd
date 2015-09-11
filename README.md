@@ -83,7 +83,6 @@ for (int i = 0; i < params.epochs; ++i)
 
     if (evalSet != null)
     {
-        //evaluate(evalSet, model);
         learner.eval(model, evalSet, metrics);
         ExecUtils.showMetrics(metrics, "Test Set Eval Metrics");
         metrics.clear();
@@ -165,7 +164,6 @@ for (int i = 0; i < params.epochs; ++i)
 
     if (evalSet != null)
     {
-        //evaluate(evalSet, model);
         learner.eval(model, evalSet, metrics);
         ExecUtils.showMetrics(metrics, "Test Set Eval Metrics");
         metrics.clear();
@@ -173,4 +171,4 @@ for (int i = 0; i < params.epochs; ++i)
 
 }
 ```
-
+The underlying sgdtk library has good support for overlapped IO and processing, influenced by [Vowpal Wabbit](https://github.com/JohnLangford/vowpal_wabbit), which makes it easy to process large amounts of data that would not fit into memory.  This is the recommended usage, unlike the above toy examples
