@@ -120,7 +120,8 @@ public class KMaxPoolingLayer implements Layer
             for (int j = 0; j < embeddingSz; ++j)
             {
 
-                PriorityQueue<Offset> offsets = new PriorityQueue<Offset>(new MaxValueComparator());
+                List<Offset> offsets = new ArrayList<Offset>(numFrames);
+                ///PriorityQueue<Offset> offsets = new PriorityQueue<Offset>(new MaxValueComparator());
 
                 for (int i = 0; i < numFrames; ++i)
                 {
@@ -129,19 +130,8 @@ public class KMaxPoolingLayer implements Layer
                     offsets.add(new Offset(inAddr, xarray[inAddr]));
 
                 }
-                List<Offset> offsetList = new ArrayList<Offset>(k);
-                Iterator<Offset> iterator = offsets.iterator();
-                for (int i = 0; i < k; ++i)
-                {
-                    if (iterator.hasNext())
-                    {
-                        offsetList.add(iterator.next());
-                    }
-                    //else
-                    //{
-                    //    throw new RuntimeException("Not enough offsets for K = " + k + ". Found " + i);
-                    //}
-                }
+                offsets.sort(new MaxValueComparator());
+                List<Offset> offsetList = offsets.subList(0, Math.min(k, offsets.size()));
                 offsetList.sort(new MinIndexComparator());
                 int sz = offsetList.size();
                 for (int i = 0; i < sz; ++i)
