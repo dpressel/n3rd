@@ -94,7 +94,7 @@ public class NeuralNetModel implements WeightModel
         {
             gg = new double[layers.length][];
         }
-        VectorN chainGrad = new DenseVectorN(new double[] { dLoss });
+        Tensor chainGrad = new Tensor(new double[] { dLoss }, 1);
 
 
         for (int k = layers.length - 1; k >= 0; --k)
@@ -119,7 +119,9 @@ public class NeuralNetModel implements WeightModel
                 }
                 Tensor weightGrads = layer.getParamGrads();
 
-                for (int i = 0; i < weights.d.length; ++i)
+                int sz = weights.size();
+
+                for (int i = 0; i < sz; ++i)
                 {
                     if (weightGrads.d[i] == 0.0)
                         continue;
@@ -257,10 +259,10 @@ public class NeuralNetModel implements WeightModel
      * @param x A feature vector
      * @return A result
      */
-    private VectorN forward(VectorN x)
+    private Tensor forward(Tensor x)
     {
 
-        VectorN z = x;
+        Tensor z = x;
         for (int i = 0; i < layers.length; ++i)
         {
             Layer layer = layers[i];
@@ -282,12 +284,18 @@ public class NeuralNetModel implements WeightModel
     @Override
     public double[] score(FeatureVector fv)
     {
-        DenseVectorN dvn = (DenseVectorN)forward(fv.getX());
+
+        DenseVectorN dvn = (DenseVectorN)fv.getX();
+
         double[] x = dvn.getX();
+        Tensor tensor = new Tensor(x, x.length);
+        Tensor output = forward(tensor);
+        x = output.d;
+        int sz = output.size();
         // Assuming a probability distribution, we are going to want to shift and scale
         if (scaleOutput)
         {
-            for (int i = 0; i < x.length; ++i)
+            for (int i = 0; i < sz; ++i)
             {
                 x[i] = (x[i] - 0.5) * 2.0;
             }

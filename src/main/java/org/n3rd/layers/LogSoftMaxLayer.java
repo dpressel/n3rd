@@ -1,51 +1,46 @@
 package org.n3rd.layers;
 
+import org.n3rd.Tensor;
 import org.sgdtk.CollectionsManip;
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
 
 /**
  * LogSoftMaxLayer returns outputs in log soft max space
  *
  * @author dpressel
  */
-public class LogSoftMaxLayer extends ActivationLayer
+public class LogSoftMaxLayer extends AbstractLayer
 {
 
-    double[] output;
-    double[] grad;
-
     @Override
-    public VectorN forward(VectorN z)
+    public Tensor forward(Tensor z)
     {
-        int sz = z.length();
-        output = new double[sz];
-        grad = new double[sz];
+        int sz = z.size();
+        output = new Tensor(sz);
+        grads = new Tensor(sz);
 
-        DenseVectorN denseVectorN = (DenseVectorN)z;
-        double[] x = denseVectorN.getX();
-        double logsum = CollectionsManip.logSum(x);
+        double logsum = CollectionsManip.logSum(z.d);
 
-        for (int i = 0; i < x.length; ++i)
+        for (int i = 0; i < sz; ++i)
         {
-            output[i] = x[i] - logsum;
+            output.d[i] = z.d[i] - logsum;
         }
-        return new DenseVectorN(output);
+        return output;
     }
 
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
-        int sz = output.length;
+        int sz = output.size();
         // Only will be one thing above us, a loss function
-        double sum = chainGrad.at(0);
+        double sum = chainGrad.d[0];
 
         final int yidx = (int)(y - 1);
         for (int i = 0; i < sz; ++i)
         {
             double indicator = yidx == i ? 1.0: 0.0;
-            grad[i] = (indicator - Math.exp(output[i]))*sum;
+            grads.d[i] = (indicator - Math.exp(output.d[i]))*sum;
         }
-        return new DenseVectorN(grad);
+        return grads;
     }
+
 }

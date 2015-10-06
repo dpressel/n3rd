@@ -14,10 +14,13 @@ public class Tensor
     {
         List<Integer> dimList = (List<Integer>)map.get("dims");
         dims = new int[dimList.size()];
+        int length = 1;
         for (int i = 0; i < dims.length; ++i)
         {
             dims[i] = dimList.get(i);
+            length *= dims[i];
         }
+        sz = length;
         List<Double> values = (List<Double>)map.get("d");
         d = new double[values.size()];
         for (int i = 0; i < d.length; ++i)
@@ -35,29 +38,91 @@ public class Tensor
             this.dims[i] = dims[i];
             length *= dims[i];
         }
-
+        sz = length;
         d = new double[length];
     }
 
     public Tensor(double[] x, int... dims)
     {
         this.dims = new int[dims.length];
-
+        int length = 1;
         for (int i = 0; i < dims.length; ++i)
         {
             this.dims[i] = dims[i];
-
+            length *= dims[i];
         }
 
+        sz = length;
         d = x;
     }
+    public Tensor(Tensor x)
+    {
+        sz = x.size();
+        this.dims = new int[x.dims.length];
+
+        for (int i = 0; i < x.dims.length; ++i)
+        {
+            this.dims[i] = x.dims[i];
+
+        }
+        d = new double[sz];
+        System.arraycopy(x.d, 0, d, 0, x.size());
+    }
+
+    public void reshape(int... dims) throws Exception
+    {
+        this.dims = new int[dims.length];
+
+        int length = 1;
+        for (int i = 0; i < dims.length; ++i)
+        {
+            this.dims[i] = dims[i];
+            length *= dims[i];
+        }
+
+        if (length != size())
+        {
+            throw new Exception("Lengths must agree for reshape");
+        }
+    }
+
+    public void resize(int... dims)
+    {
+        this.dims = new int[dims.length];
+
+        int length = 1;
+        for (int i = 0; i < dims.length; ++i)
+        {
+            this.dims[i] = dims[i];
+            length *= dims[i];
+        }
+
+
+
+        if (size() != length)
+        {
+            sz = length;
+            double [] old = d;
+            d = new double[length];
+
+            int minLength = Math.min(old.length, d.length);
+            System.arraycopy(old, 0, d, 0, minLength);
+        }
+    }
+
 
     public int[] dims;
+    public int sz;
     public double[] d;
 
+    public int size()
+    {
+        return sz;
+    }
     public void reset(double x)
     {
-        for (int i = 0; i < d.length; ++i)
+
+        for (int i = 0; i < sz; ++i)
         {
             d[i] = x;
         }
@@ -73,11 +138,12 @@ public class Tensor
         newDims[0] *= times;
 
         Tensor replicated = new Tensor(newDims);
-        for (int i = 0; i < tensor.d.length; ++i)
+        int pitch = tensor.size();
+        for (int i = 0; i < pitch; ++i)
         {
             for (int k = 0; k < newDims[0]; ++k)
             {
-                replicated.d[k * tensor.d.length + i] = tensor.d[i];
+                replicated.d[k * pitch + i] = tensor.d[i];
             }
         }
         return replicated;

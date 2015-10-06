@@ -2,8 +2,6 @@ package org.n3rd.layers;
 
 import org.n3rd.Tensor;
 import org.n3rd.ops.FilterOps;
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,27 +16,13 @@ import java.util.LinkedHashMap;
  * we can do the Kalchbrenner/Blunsom thing as well. If you want to do the Torch approach, just pass and embeddingSz
  * of 1 and handle everything else outside
  */
-public class TemporalConvolutionalLayer implements Layer
+public class TemporalConvolutionalLayer extends AbstractLayer
 {
+
     // we have an output number of feature maps, an input width and an input number of feature maps
-    // e.g. 500 x 5 x 300
-    Tensor weights;
 
     // Input is Number of frames x frame width (num feature maps)
     Tensor input;
-
-    // Output is Number of frames x num feature maps
-
-
-    Tensor gradsW;
-    Tensor grads;
-    double[] biases;
-    double[] biasGrads;
-
-    double forwardTime = 0.;
-    int currentForward = 0;
-    double backwardTime = 0.;
-    int currentBackward = 0;
 
     public TemporalConvolutionalLayer()
     {
@@ -55,7 +39,7 @@ public class TemporalConvolutionalLayer implements Layer
 
 
         // For each kernel, randomly initialize all weights
-        for (int i = 0; i < weights.d.length; ++i)
+        for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
             weights.d[i] = rand();
         }
@@ -69,38 +53,39 @@ public class TemporalConvolutionalLayer implements Layer
         double stdv = 1. / Math.sqrt(6. / 28.);
         double stdv2 = stdv * 2;
         double d = Math.random() * stdv2 - stdv;
+        //double d = RND[Current++ % RND.length] * stdv2 - stdv;
         return d;
-        //return 1;
     }
 
     @Override
-    public VectorN forward(VectorN z)
+    public Tensor forward(Tensor z)
     {
         // For convolutions, we should assume that our VectorN is truly a matrix
         // and the usual math applies
-        DenseVectorN dv = (DenseVectorN) z;
+
+
         final int inputFeatureMapSz = weights.dims[1];
         final int embeddingSz = weights.dims[3];
-        final int numFrames = z.length() / embeddingSz / inputFeatureMapSz;
-        double[] mx = dv.getX();
-        input = new Tensor(mx, inputFeatureMapSz, numFrames, embeddingSz);
-        grads = new Tensor(inputFeatureMapSz, numFrames, embeddingSz);
-        long start = System.currentTimeMillis();
-        // 10x faster or more than using corr1MM
-        Tensor output = FilterOps.corr1(input, weights, biases); // biases
-        long elapsed = System.currentTimeMillis() - start;
-        this.forwardTime += elapsed;
-        this.currentForward++;
-        if (currentForward % 100000 == 0)
+        final int numFrames = z.size() / embeddingSz / inputFeatureMapSz;
+
+        try
         {
-            System.out.println("Fwd (ms/vec): " + this.forwardTime / currentForward);
+            input = new Tensor(z.d, inputFeatureMapSz, numFrames, embeddingSz);
+            grads = new Tensor(inputFeatureMapSz, numFrames, embeddingSz);
+            // 10x faster or more than using corr1MM
+            output = FilterOps.corr1(input, weights, biases); // biases
+
+            return output;
         }
-        return new DenseVectorN(output.d);
+        catch (Exception ex)
+        {
+            throw new RuntimeException(ex);
+        }
 
     }
 
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
         final int featureMapSz = weights.dims[0];
         final int embeddingSz = weights.dims[3];
@@ -109,17 +94,12 @@ public class TemporalConvolutionalLayer implements Layer
         final int convOutputSz = numFrames - kW + 1;
         // The desired dims going backwards is going to be
 
-        int[] outputDims = new int[] { featureMapSz, convOutputSz, embeddingSz };
-        DenseVectorN chainGradDense = (DenseVectorN) chainGrad;
-
-        double[] chainGradX = chainGradDense.getX();
-        Tensor chainGradTensor = new Tensor(chainGradX, outputDims);
         int stride = convOutputSz * embeddingSz;
         for (int l = 0; l < featureMapSz; ++l)
         {
             for (int i = 0; i < stride; ++i)
             {
-                this.biasGrads[l] += chainGradX[l * stride + i];
+                this.biasGrads[l] += chainGrad.d[l * stride + i];
             }
             this.biasGrads[l] /= embeddingSz;
         }
@@ -127,24 +107,19 @@ public class TemporalConvolutionalLayer implements Layer
         int zpFrameSize = numFrames + kW - 1;
         int zp = zpFrameSize - convOutputSz;
 
-        Tensor zpChainGrad = Tensor.embed(chainGradTensor, zp, 0);
+        Tensor zpChainGrad = Tensor.embed(chainGrad, zp, 0);
         Tensor tWeights = Tensor.transposeWeight4D(weights);
-        long start = System.currentTimeMillis();
-
         Tensor gradUps = FilterOps.conv1(zpChainGrad, tWeights, null);
-        long elapsed = System.currentTimeMillis() - start;
-        this.backwardTime += elapsed;
-        this.currentBackward++;
 
-        for (int i = 0; i < gradUps.d.length; ++i)
+        for (int i = 0, sz = gradUps.size(); i < sz; ++i)
         {
             this.grads.d[i] += gradUps.d[i];
         }
 
-        Tensor gradWUps = FilterOps.corr1Weights(input, chainGradTensor);
+        Tensor gradWUps = FilterOps.corr1Weights(input, chainGrad);
 
         // Try not moving the gradient of weights
-        for (int i = 0; i < weights.d.length; ++i)
+        for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
             gradsW.d[i] += gradWUps.d[i];
         }
@@ -152,20 +127,20 @@ public class TemporalConvolutionalLayer implements Layer
         //// GRADIENT CHECK
         ////gradCheck(chainGradTensor);
         ////gradCheckX(chainGradTensor);
-        return new DenseVectorN(this.grads.d);
+        return grads;
     }
 
     void gradCheckX(Tensor outputLayerGradArray)
     {
 
         double sumX = 0.;
-        for (int i = 0; i < grads.d.length; ++i)
+        for (int i = 0, sz = grads.size(); i < sz; ++i)
         {
             sumX += grads.d[i];
         }
 
         double sumNumGrad = 0.;
-        for (int i = 0; i < input.d.length; ++i)
+        for (int i = 0, sz = input.size(); i < sz; ++i)
         {
             double xd = input.d[i];
             double xdp = xd + 1e-4;
@@ -178,7 +153,7 @@ public class TemporalConvolutionalLayer implements Layer
             Tensor outputLow = FilterOps.corr1(input, weights, biases);
 
             input.d[i] = xd;
-            for (int j = 0; j < outputHigh.d.length; ++j)
+            for (int j = 0, zsz = outputHigh.size(); j < zsz; ++j)
             {
                 double dxx = (outputHigh.d[j] - outputLow.d[j]) / (2 * 1e-4);
                 sumNumGrad += outputLayerGradArray.d[j] * dxx;
@@ -199,7 +174,7 @@ public class TemporalConvolutionalLayer implements Layer
 
         double sumNumGrad = 0.;
         double sumGrad = 0.0;
-        for (int i = 0; i < gradsW.d.length; ++i)
+        for (int i = 0, sz = gradsW.size(); i < sz; ++i)
         {
             sumGrad += this.gradsW.d[i];
         }
@@ -229,7 +204,7 @@ public class TemporalConvolutionalLayer implements Layer
                         weights.d[z] = wd;
                         ++z;
 
-                        for (int w = 0; w < outputHigh.d.length; ++w)
+                        for (int w = 0, zsz = outputHigh.size(); w < zsz; ++w)
                         {
                             double dxx = chainGradTensor.d[w] * (outputHigh.d[w] - outputLow.d[w]) / (2 * 1e-4);
                             sumNumGrad += dxx;
@@ -245,17 +220,6 @@ public class TemporalConvolutionalLayer implements Layer
         }
     }
 
-    @Override
-    public Tensor getParamGrads()
-    {
-        return gradsW;
-    }
-
-    @Override
-    public Tensor getParams()
-    {
-        return weights;
-    }
 
     /**
      * Exists for reserialization purposes only!  Turns instantly into a Tensor when injected
@@ -277,15 +241,4 @@ public class TemporalConvolutionalLayer implements Layer
         }
     }
 
-    @Override
-    public double[] getBiasGrads()
-    {
-        return biasGrads;
-    }
-
-    @Override
-    public double[] getBiasParams()
-    {
-        return biases;
-    }
 }

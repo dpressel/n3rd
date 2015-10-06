@@ -2,8 +2,6 @@ package org.n3rd.layers;
 
 import org.n3rd.Tensor;
 import org.n3rd.ops.FilterOps;
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,10 +15,8 @@ import java.util.LinkedHashMap;
  *
  * @author dpressel
  */
-public class SpatialConvolutionalLayer implements Layer
+public class SpatialConvolutionalLayer extends AbstractLayer
 {
-    Tensor weights;
-
     // Cube represents multiple feature maps for this layer
     Tensor input;
 
@@ -41,11 +37,6 @@ public class SpatialConvolutionalLayer implements Layer
 
     int[] outputDims;
 
-    Tensor gradsW;
-    Tensor grads;
-    double[] biases;
-    double[] biasGrads;
-
     public SpatialConvolutionalLayer()
     {
 
@@ -56,6 +47,7 @@ public class SpatialConvolutionalLayer implements Layer
         final int iL = inputDims.length == 3? inputDims[0]: 1;
         final int iH = inputDims[1];
         final int iW = inputDims[2];
+
         weights = new Tensor(nK, iL, kH, kW);
         gradsW = new Tensor(nK, iL, kH, kW);
         biases = new double[nK];
@@ -65,7 +57,7 @@ public class SpatialConvolutionalLayer implements Layer
         this.grads = new Tensor(inputDims);
         this.outputDims = new int[] { nK, iH - kH + 1, iW - kW + 1 };
         // For each kernel, randomly initialize all weights
-        for (int i = 0; i < weights.d.length; ++i)
+        for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
             weights.d[i] = rand();
         }
@@ -81,23 +73,19 @@ public class SpatialConvolutionalLayer implements Layer
     }
 
     @Override
-    public VectorN forward(VectorN z)
+    public Tensor forward(Tensor z)
     {
-        // For convolutions, we should assume that our VectorN is truly a matrix
-        // and the usual math applies
-        DenseVectorN dv = (DenseVectorN) z;
+        // NOT A COPY
+        input.d = z.d;
+        output = FilterOps.corr2(input, weights, null);//biases);
 
-        double[] mx = dv.getX();
-        input.d = mx;
-        Tensor output = FilterOps.corr2(input, weights, null);//biases);
-
-        return new DenseVectorN(output.d);
+        return output;
 
     }
 
     // For every filter, do a convolution
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
         final int iL = input.dims[0];
         final int iH = input.dims[1];
@@ -108,14 +96,12 @@ public class SpatialConvolutionalLayer implements Layer
         final int kL = weights.dims[1];
         final int kH = weights.dims[2];
         final int kW = weights.dims[3];
-        DenseVectorN chainGradDense = (DenseVectorN) chainGrad;
-        double[] chainGradX = chainGradDense.getX();
-        Tensor chainGradTensor = new Tensor(chainGradX, outputDims);
+
         final int zpH = iH + kH - 1;
         final int zpW = iW + kW - 1;
 
         this.grads.reset(0.);
-        Tensor zpChainGradCube = Tensor.embed(chainGradTensor, zpH - oH, zpW - oW);
+        Tensor zpChainGradCube = Tensor.embed(chainGrad, zpH - oH, zpW - oW);
 
         int nK = weights.dims[0];
 
@@ -123,25 +109,26 @@ public class SpatialConvolutionalLayer implements Layer
 
         // This is actually what is failing.  Why?  Probably a bug in transpose weight 4D?
         Tensor gradUps = FilterOps.conv2(zpChainGradCube, tWeights, null);
-        for (int i = 0; i < gradUps.d.length; ++i)
+
+        for (int i = 0, sz = gradUps.size(); i < sz; ++i)
         {
             this.grads.d[i] += gradUps.d[i];
         }
 
         // This is correct, we know that the gradient of the weights is checking out
-        Tensor gradWUps = FilterOps.corr2Weights(input, chainGradTensor);
+        Tensor gradWUps = FilterOps.corr2Weights(input, chainGrad);
 
 
-        for (int i = 0; i < weights.d.length; ++i)
+        for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
             gradsW.d[i] += gradWUps.d[i];
 
         }
         for (int l = 0; l < nK; ++l)
         {
-            for (int i = 0; i < chainGradX.length; ++i)
+            for (int i = 0, sz = chainGrad.size(); i < sz; ++i)
             {
-                this.biasGrads[l] += chainGradX[i];
+                this.biasGrads[l] += chainGrad.d[i];
             }
         }
 
@@ -150,31 +137,7 @@ public class SpatialConvolutionalLayer implements Layer
         ////gradCheck(chainGradTensor);
         ////gradCheckX(chainGradTensor);
 
-        return new DenseVectorN(this.grads.d);
-    }
-
-    @Override
-    public Tensor getParamGrads()
-    {
-        return gradsW;
-    }
-
-    @Override
-    public Tensor getParams()
-    {
-        return weights;
-    }
-
-    @Override
-    public double[] getBiasGrads()
-    {
-        return new double[0];
-    }
-
-    @Override
-    public double[] getBiasParams()
-    {
-        return new double[0];
+        return grads;
     }
 
 
@@ -182,13 +145,13 @@ public class SpatialConvolutionalLayer implements Layer
     {
 
         double sumX = 0.;
-        for (int i = 0; i < grads.d.length; ++i)
+        for (int i = 0, sz = grads.size(); i < sz; ++i)
         {
             sumX += grads.d[i];
         }
 
         double sumNumGrad = 0.;
-        for (int i = 0; i < input.d.length; ++i)
+        for (int i = 0, sz = input.size(); i < sz; ++i)
         {
             double xd = input.d[i];
             double xdp = xd + 1e-4;
@@ -201,7 +164,7 @@ public class SpatialConvolutionalLayer implements Layer
             Tensor outputLow = FilterOps.corr2(input, weights, biases);
 
             input.d[i] = xd;
-            for (int j = 0; j < outputHigh.d.length; ++j)
+            for (int j = 0, zsz = outputHigh.size(); j < zsz; ++j)
             {
                 double dxx = (outputHigh.d[j] - outputLow.d[j]) / (2 * 1e-4);
                 sumNumGrad += outputLayerGradArray.d[j] * dxx;
@@ -270,4 +233,5 @@ public class SpatialConvolutionalLayer implements Layer
             System.out.println("Abs delta large: " + absDelta);
         }
     }
+
 }

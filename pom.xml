@@ -137,7 +137,7 @@
         </resources>
         <testResources>
             <testResource>
-                <directory>src/test/resources</directory>
+                <directory>src/main/test/resources</directory>
             </testResource>
         </testResources>
 

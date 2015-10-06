@@ -1,7 +1,6 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
-import org.sgdtk.VectorN;
 
 /**
  * Contract for a layer
@@ -21,7 +20,7 @@ public interface Layer
      * @return this layer's outputs
      */
 
-    VectorN forward(VectorN x);
+    Tensor forward(Tensor x);
 
     /**
      * Implement back prop
@@ -30,10 +29,11 @@ public interface Layer
      * @param y deltas from this layer
      * @return
      */
-    VectorN backward(VectorN chainGrad, double y);
+    Tensor backward(Tensor chainGrad, double y);
     
     Tensor getParamGrads();
     Tensor getParams();
+    Tensor getOutput();
 
     double[] getBiasGrads();
     double[] getBiasParams();

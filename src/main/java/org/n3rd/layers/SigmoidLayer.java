@@ -1,14 +1,13 @@
 package org.n3rd.layers;
 
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
+import org.n3rd.Tensor;
 
 /**
  *  Standard sigmoid layer
  *
  *  @author dpressel
  */
-public class SigmoidLayer extends ActivationLayer
+public class SigmoidLayer extends AbstractLayer
 {
     public SigmoidLayer()
     {
@@ -19,32 +18,31 @@ public class SigmoidLayer extends ActivationLayer
         return 1.0 / (1.0 + Math.exp(-x));
     }
 
-    double[] output;
-    double[] grad;
-
 
     // We got pre-activations out of the last layer.  All we are doing here is squashing them, forming
     // activations.  That means that we have the same number of outputs as we have inputs!
     @Override
-    public VectorN forward(VectorN z)
+    public Tensor forward(Tensor z)
     {
-        int sz = z.length();
-        output = new double[sz];
-        grad = new double[sz];
+        int sz = z.size();
+
+        output = new Tensor(sz);
+        grads = new Tensor(sz);
         for (int i = 0; i < sz; ++i)
         {
-            output[i] = sigmoid(z.at(i));
+            output.d[i] = sigmoid(z.d[i]);
         }
-        return new DenseVectorN(output);
+        return output;
     }
 
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
-        for (int i = 0, sz = chainGrad.length(); i < sz; ++i)
+        for (int i = 0, sz = chainGrad.size(); i < sz; ++i)
         {
-            grad[i] = chainGrad.at(i) * (1 - output[i]) * output[i];
+            grads.d[i] = chainGrad.d[i] * (1 - output.d[i]) * output.d[i];
         }
-        return new DenseVectorN(grad);
+        return grads;
     }
+
 }

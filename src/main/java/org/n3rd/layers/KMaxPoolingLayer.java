@@ -1,12 +1,11 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
-import org.n3rd.util.IntCube;
-import org.sgdtk.DenseVectorN;
 import org.sgdtk.Offset;
-import org.sgdtk.VectorN;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * K-max pooling, a generalization of max-pooling over time, where we take the top K values
@@ -20,14 +19,14 @@ import java.util.*;
  *
  * @author dpressel
  */
-public class KMaxPoolingLayer implements Layer
+public class KMaxPoolingLayer extends AbstractLayer
 {
 
     private int k;
     private int embeddingSz;
     private int featureMapSz;
     int numFrames;
-    IntCube origin;
+    int[] origin;
 
 
     /**
@@ -49,6 +48,8 @@ public class KMaxPoolingLayer implements Layer
         this.k = k;
         this.embeddingSz = embedSz;
         this.featureMapSz = featureMapSz;
+        output = new Tensor(featureMapSz, k, embeddingSz);
+        origin = new int[output.size()];
     }
 
     public int getK()
@@ -101,18 +102,21 @@ public class KMaxPoolingLayer implements Layer
     }
 
     @Override
-    public VectorN forward(VectorN x)
+    public Tensor forward(Tensor z)
     {
 
-        DenseVectorN denseVectorN = (DenseVectorN)x;
-        double[] xarray = denseVectorN.getX();
-        numFrames = xarray.length/embeddingSz/featureMapSz;
 
-        Tensor output = new Tensor(featureMapSz, k, embeddingSz);
-        origin = new IntCube(featureMapSz, k, embeddingSz);
-        for (int i = 0; i < origin.h * origin.w * origin.l; ++i)
+        numFrames = z.size()/embeddingSz/featureMapSz;
+
+
+        grads = new Tensor(featureMapSz, numFrames, embeddingSz);
+
+        int sz = output.size();
+
+        for (int i = 0; i <sz; ++i)
         {
-            origin.d[i] = -100;
+            output.d[i] = 0;
+            origin[i] = -100;
         }
 
         for (int l = 0; l < featureMapSz; ++l)
@@ -127,33 +131,32 @@ public class KMaxPoolingLayer implements Layer
                 {
                     int inAddr = (l * numFrames + i) * embeddingSz + j;
 
-                    offsets.add(new Offset(inAddr, xarray[inAddr]));
+                    offsets.add(new Offset(inAddr, z.d[inAddr]));
 
                 }
                 offsets.sort(new MaxValueComparator());
                 List<Offset> offsetList = offsets.subList(0, Math.min(k, offsets.size()));
                 offsetList.sort(new MinIndexComparator());
-                int sz = offsetList.size();
+                sz = offsetList.size();
                 for (int i = 0; i < sz; ++i)
                 {
                     int outAddr = (l * k + i) * embeddingSz + j;
-                    origin.d[outAddr] = offsetList.get(i).index;
+                    origin[outAddr] = offsetList.get(i).index;
                     output.d[outAddr] = offsetList.get(i).value;
                 }
             }
 
         }
-        return new DenseVectorN(output.d);
+        return output;
     }
 
     // Since the output and input are the same for the max value, we can just apply the
     // max-pool value from the output
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
-        Tensor input = new Tensor(featureMapSz, numFrames, embeddingSz);
 
-        double[] chainGradX = ((DenseVectorN) chainGrad).getX();
+
         for (int l = 0; l < featureMapSz; ++l)
         {
             for (int i = 0; i < k; ++i)
@@ -162,40 +165,16 @@ public class KMaxPoolingLayer implements Layer
                 {
 
                     int outAddr = (l * k + i) * embeddingSz + j;
-                    int inAddr = origin.d[outAddr];
+                    int inAddr = origin[outAddr];
                     if (inAddr == -100)
                     {
                         continue;
                     }
-                    input.d[inAddr] = chainGradX[outAddr];
+                    grads.d[inAddr] = chainGrad.d[outAddr];
                 }
             }
         }
-        return new DenseVectorN(input.d);
+        return grads;
     }
 
-    // We have no params in this layer
-    @Override
-    public Tensor getParamGrads()
-    {
-        return null;
-    }
-
-    @Override
-    public Tensor getParams()
-    {
-        return null;
-    }
-
-    @Override
-    public double[] getBiasGrads()
-    {
-        return null;
-    }
-
-    @Override
-    public double[] getBiasParams()
-    {
-        return null;
-    }
 }

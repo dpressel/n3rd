@@ -1,16 +1,14 @@
 package org.n3rd.layers;
 
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
+import org.n3rd.Tensor;
 
 /**
  * Standard Tanh implementation
  *
  * @author dpressel
  */
-public class TanhLayer extends ActivationLayer
+public class TanhLayer extends AbstractLayer
 {
-    double [] output;
 
     public TanhLayer()
     {
@@ -18,29 +16,31 @@ public class TanhLayer extends ActivationLayer
     }
 
     @Override
-    public VectorN forward(VectorN z)
+    public Tensor forward(Tensor z)
     {
 
-        int sz = z.length();
-        output = new double[sz];
+        int sz = z.size();
+        output = new Tensor(sz);
+        grads = new Tensor(sz);
         for (int i = 0; i < sz; ++i)
         {
-            double zi = z.at(i);
-            output[i] = Math.tanh(zi);
+            double zi = z.d[i];
+            output.d[i] = Math.tanh(zi);
         }
-        return new DenseVectorN(output);
+        return output;
     }
 
 
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
-        int sz = chainGrad.length();
-        double [] dh = new double[sz];
+        int sz = chainGrad.size();
+
         for (int i = 0; i < sz; ++i)
         {
-            dh[i] = chainGrad.at(i) * (1 - output[i]*output[i]);
+            grads.d[i] = chainGrad.d[i] * (1 - output.d[i]*output.d[i]);
         }
-        return new DenseVectorN(dh);
+        return grads;
     }
+
 }

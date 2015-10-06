@@ -1,8 +1,6 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
 
 /**
  * Folding layer, inspired by Kalchbrenner & Blunsom's folding layer, but more general purpose
@@ -14,7 +12,7 @@ import org.sgdtk.VectorN;
  *
  * @author dpressel
  */
-public class AverageFoldingLayer implements Layer
+public class AverageFoldingLayer extends AbstractLayer
 {
 
     private int embeddingSz;
@@ -38,15 +36,13 @@ public class AverageFoldingLayer implements Layer
         this.k = k;
     }
     @Override
-    public VectorN forward(VectorN x)
+    public Tensor forward(Tensor z)
     {
-
-        DenseVectorN denseVectorN = (DenseVectorN)x;
-        double[] xarray = denseVectorN.getX();
-        numFrames = xarray.length/embeddingSz/featureMapSz;
+        numFrames = z.size()/embeddingSz/featureMapSz;
         final int outEmbeddingSz = embeddingSz/k;
 
-        Tensor output = new Tensor(featureMapSz, numFrames, outEmbeddingSz);
+        // Do a resize() here!
+        output = new Tensor(featureMapSz, numFrames, outEmbeddingSz);
         output.reset(0.);
 
         double div = 1.0 / k;
@@ -61,24 +57,23 @@ public class AverageFoldingLayer implements Layer
                     output.d[obase + p] = 0.0;
                     for (int m = 0; m < k; ++m)
                     {
-                        output.d[obase + p] += xarray[ibase + j + m];
+                        output.d[obase + p] += z.d[ibase + j + m];
                     }
                     output.d[obase + p] *= div;
                 }
             }
         }
-        return new DenseVectorN(output.d);
+        return output;
     }
 
     // Since the output and input are the same for the max value, we can just apply the
     // max-pool value from the output
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
 
-        Tensor input = new Tensor(featureMapSz, numFrames, embeddingSz);
+        grads = new Tensor(featureMapSz, numFrames, embeddingSz);
         double div = 1.0 / k;
-        double[] chainGradX = ((DenseVectorN) chainGrad).getX();
         int outEmbeddingSz = embeddingSz/k;
         for (int l = 0; l < featureMapSz; ++l)
         {
@@ -88,41 +83,16 @@ public class AverageFoldingLayer implements Layer
                 int ibase = (l * numFrames + i) * embeddingSz;
                 for (int j = 0, p = 0; j < embeddingSz; j += k, ++p)
                 {
-                    double value = chainGradX[obase + p] * div;
+                    double value = chainGrad.d[obase + p] * div;
                     for (int m = 0; m < k; ++m)
                     {
-                        input.d[ibase + j + m] = value;
+                        grads.d[ibase + j + m] = value;
                     }
                 }
             }
         }
 
-        return new DenseVectorN(input.d);
-    }
-
-    // We have no params in this layer
-    @Override
-    public Tensor getParamGrads()
-    {
-        return null;
-    }
-
-    @Override
-    public Tensor getParams()
-    {
-        return null;
-    }
-
-    @Override
-    public double[] getBiasGrads()
-    {
-        return null;
-    }
-
-    @Override
-    public double[] getBiasParams()
-    {
-        return null;
+        return grads;
     }
 
     public int getEmbeddingSz()
@@ -144,4 +114,5 @@ public class AverageFoldingLayer implements Layer
     {
         this.featureMapSz = featureMapSz;
     }
+
 }

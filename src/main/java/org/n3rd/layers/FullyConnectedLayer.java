@@ -2,8 +2,6 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,17 +13,12 @@ import java.util.LinkedHashMap;
  *
  * @author dpressel
  */
-public class FullyConnectedLayer implements Layer
+public class FullyConnectedLayer extends AbstractLayer
 {
 
-    protected DenseVectorN z;
-    protected Tensor weights;
-    protected Tensor gradW;
-    protected double[] biases;
-    protected double[] gradBiases;
+    protected Tensor z;
     private int outputLength;
     private int inputLength;
-    protected DenseVectorN dx;
 
     /**
      * This method exists for deserialization from the model
@@ -56,6 +49,7 @@ public class FullyConnectedLayer implements Layer
     {
         double stdv = 1. / Math.sqrt(inputLength);
         double stdv2 = stdv * 2;
+        //return RND[Current++ % RND.length] * stdv2 - stdv;
         return Math.random() * stdv2 - stdv;
     }
 
@@ -77,9 +71,10 @@ public class FullyConnectedLayer implements Layer
         this.outputLength = outputLength;
         this.inputLength = inputLength;
         weights = new Tensor(outputLength, this.inputLength);
-        gradW = new Tensor(outputLength, this.inputLength);
+        gradsW = new Tensor(outputLength, this.inputLength);
+        output = new Tensor(outputLength);
         biases = new double[outputLength];
-        gradBiases = new double[outputLength];
+        biasGrads = new double[outputLength];
         for (int i = 0, ibase = 0; i < outputLength; ++i, ibase += this.inputLength)
         {
             for (int j = 0; j < this.inputLength; ++j)
@@ -88,7 +83,7 @@ public class FullyConnectedLayer implements Layer
             }
             biases[i] = rand();
         }
-        dx = new DenseVectorN(this.inputLength);
+        grads = new Tensor(this.inputLength);
 
     }
 
@@ -98,76 +93,46 @@ public class FullyConnectedLayer implements Layer
      * @return
      */
     @Override
-    public VectorN forward(VectorN x)
+    public Tensor forward(Tensor x)
     {
-        this.z = new DenseVectorN(x);
-        return fX(z.getX(), weights.d);
+        this.z = new Tensor(x);
+        return fX(z, weights);
     }
 
     // This is the workhorse
-    protected DenseVectorN fX(double[] x, double[] w)
+    protected Tensor fX(Tensor x, Tensor w)
     {
 
-        DenseVectorN preAct = new DenseVectorN(outputLength);
-        double[] preActV = preAct.getX();
 
-        int zL = Math.min(inputLength, x.length);
+
+        int zL = Math.min(inputLength, x.size());
         //System.out.println("zL " + zL + ", " + outputLength + " x " + inputLength);
         for (int i = 0, ibase = 0; i < outputLength; ++i, ibase += inputLength)
         {
             double acc = 0.;
             for (int j = 0; j < zL; ++j)
             {
-                acc += w[ibase + j] * x[j];
+                acc += w.d[ibase + j] * x.d[j];
             }
 
-            preActV[i] = acc + biases[i];
+            output.d[i] = acc + biases[i];
         }
-        return preAct;
-    }
-
-
-    @Override
-    public Tensor getParamGrads()
-    {
-        return gradW;
-    }
-
-    @Override
-    public Tensor getParams()
-    {
-        return weights;
-    }
-
-    @Override
-    public double[] getBiasGrads()
-    {
-        return gradBiases;
-    }
-
-    @Override
-    public double[] getBiasParams()
-    {
-        return biases;
+        return output;
     }
 
     /**
      * Do backprop
-     * @param outputLayerGrad layers above's deltas
+     * @param chainGrad layers above's deltas
      * @param y Label
      * @return The deltas for this layer
      */
     @Override
-    public VectorN backward(VectorN outputLayerGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
-
-        dx.reset();
-        DenseVectorN outputLayerGradDense = (DenseVectorN)outputLayerGrad;
-        double [] dxV = dx.getX(); 
-        double [] outputLayerGradArray = outputLayerGradDense.getX();
-        int zLength = z.length();
+        int zLength = z.size();
         int howLong = Math.min(inputLength, zLength);
-        double [] zArray = z.getX();
+
+        grads.reset(0.);
 
         for (int i = 0, ibase = 0; i < outputLength; ++i, ibase += inputLength)
         {
@@ -180,25 +145,25 @@ public class FullyConnectedLayer implements Layer
             for (int j = 0; j < howLong; ++j)
             {
 
-                gradW.d[ibase + j] += outputLayerGradArray[i] * zArray[j];
-                dxV[j] += outputLayerGradArray[i] * weights.d[ibase + j];
+                gradsW.d[ibase + j] += chainGrad.d[i] * z.d[j];
+                grads.d[j] += chainGrad.d[i] * weights.d[ibase + j];
                 
             }
             // push propagates through on a constant term
-            gradBiases[i] += outputLayerGradArray[i];
+            biasGrads[i] += chainGrad.d[i];
         }
 
         //// GRADIENT CHECKING.  We have x laying around, so we need to do the forward computation on both
         ////gradCheck(outputLayerGradArray);
         ////gradCheckX(outputLayerGradArray);
-        return dx;
+        return grads;
 
     }
 
     // dx on a fully connected layer is simply the parameters by the parent gradient
     void gradCheckX(double[] outputLayerGradArray)
     {
-        double[] dxArray = dx.getX();
+        double[] dxArray = grads.d;
         double sumX = 0.0;
 
         for (int i = 0; i < dxArray.length; ++i)
@@ -206,19 +171,18 @@ public class FullyConnectedLayer implements Layer
             sumX += dxArray[i];
         }
 
-        double[] zArray = z.getX();
         double sumNumGrad = 0.;
         for (int i = 0; i < inputLength; ++i)
         {
-            double xd = zArray[i];
+            double xd = z.d[i];
             double xdp = xd + 1e-4;
             double xdm = xd - 1e-4;
             // first add it
-            zArray[i] = xdp;
-            double[] zop = fX(zArray, weights.d).getX();
-            zArray[i] = xdm;
-            double[] zom = fX(zArray, weights.d).getX();
-            zArray[i] = xd;
+            z.d[i] = xdp;
+            double[] zop = fX(z, weights).d;
+            z.d[i] = xdm;
+            double[] zom = fX(z, weights).d;
+            z.d[i] = xd;
 
             for (int j = 0; j < zop.length; ++j)
             {
@@ -237,29 +201,29 @@ public class FullyConnectedLayer implements Layer
     // When we shift parameters, isolating each, we get the gradient WRT the parameters
     void gradCheck(double[] outputLayerGradArray)
     {
-        double[] zArray = z.getX();
+
         double sumX = 0.0;
         //for (int j = 0; j < zArray.length; ++j)
-        for (int i = 0; i < gradW.d.length; ++i)
+        for (int i = 0, sz = gradsW.size(); i < sz; ++i)
         {
-            sumX += gradW.d[i];
+            sumX += gradsW.d[i];
         }
         double sumNumGrad = 0.;
-        for (int i = 0; i < weights.d.length; ++i)
+        for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
             double wd = weights.d[i];
             double wdp = wd + 1e-4;
             double wdm = wd - 1e-4;
             // first add it
             weights.d[i] = wdp;
-            double[] x = z.getX();
-            double[] zop = fX(x, weights.d).getX();
+
+            Tensor zop = fX(z, weights);
             weights.d[i] = wdm;
-            double[] zom = fX(x, weights.d).getX();
+            Tensor zom = fX(z, weights);
             weights.d[i] = wd;
-            for (int j = 0; j < zop.length; ++j)
+            for (int j = 0, zsz = zop.size(); j < zsz; ++j)
             {
-                double dxx = outputLayerGradArray[j] * (zop[j] - zom[j])/ (2*1e-4);
+                double dxx = outputLayerGradArray[j] * (zop.d[j] - zom.d[j])/ (2*1e-4);
                 sumNumGrad += dxx;
             }
         }

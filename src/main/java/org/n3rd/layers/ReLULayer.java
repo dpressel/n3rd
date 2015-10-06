@@ -1,16 +1,14 @@
 package org.n3rd.layers;
 
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.VectorN;
+import org.n3rd.Tensor;
 
 /**
  * ReLU as its typically described -- max(0, d)
  *
  * @author dpressel
  */
-public class ReLULayer extends ActivationLayer
+public class ReLULayer extends AbstractLayer
 {
-    double [] output;
 
     public ReLULayer()
     {
@@ -28,29 +26,30 @@ public class ReLULayer extends ActivationLayer
         return d > 0. ? 1.: 0.;
     }
     @Override
-    public VectorN forward(VectorN z)
+    public Tensor forward(Tensor z)
     {
 
-        int sz = z.length();
-        output = new double[sz];
+        int sz = z.size();
+        output = new Tensor(sz);
+        grads = new Tensor(sz);
         for (int i = 0; i < sz; ++i)
         {
-            double zi = z.at(i);
-            output[i] = relu(zi);
+            double zi = z.d[i];
+            output.d[i] = relu(zi);
         }
-        return new DenseVectorN(output);
+        return output;
     }
 
 
     @Override
-    public VectorN backward(VectorN chainGrad, double y)
+    public Tensor backward(Tensor chainGrad, double y)
     {
-        int sz = chainGrad.length();
-        double [] dh = new double[sz];
+        int sz = chainGrad.size();
+
         for (int i = 0; i < sz; ++i)
         {
-            dh[i] = chainGrad.at(i) * drelu(output[i]);
+            grads.d[i] = chainGrad.d[i] * drelu(output.d[i]);
         }
-        return new DenseVectorN(dh);
+        return grads;
     }
 }
