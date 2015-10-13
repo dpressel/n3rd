@@ -49,7 +49,6 @@ public class FullyConnectedLayer extends AbstractLayer
     {
         double stdv = 1. / Math.sqrt(inputLength);
         double stdv2 = stdv * 2;
-        //return RND[Current++ % RND.length] * stdv2 - stdv;
         return Math.random() * stdv2 - stdv;
     }
 
@@ -81,7 +80,7 @@ public class FullyConnectedLayer extends AbstractLayer
             {
                 weights.d[ibase + j] = rand();
             }
-            biases[i] = rand();
+            biases[i] = 0;//rand();
         }
         grads = new Tensor(this.inputLength);
 

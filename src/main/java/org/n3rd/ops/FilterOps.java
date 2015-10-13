@@ -92,20 +92,20 @@ public class FilterOps
         // x.dims[2] is the #cols in input
 
         final int nFeatureMapsInput = x.dims[0];
-        final int xRows = x.dims[1];
-        final int embeddingSz = x.dims[2];
+        final int xRows = x.dims[2];
+        final int embeddingSz = x.dims[1];
 
 
         // y is the deltas
         // y.dims[0] is the #feature maps in the output
         final int nFeatureMapsOutput = ygrad.dims[0];
         // y.dims[1] is the #rows in output
-        final int yRows = ygrad.dims[1];
+        final int yRows = ygrad.dims[2];
 
         // The number of cubes is the output depth (# feature maps)
-        Tensor weightGrads = new Tensor(nFeatureMapsOutput, nFeatureMapsInput, xRows - yRows + 1, embeddingSz);
+        Tensor weightGrads = new Tensor(nFeatureMapsOutput, nFeatureMapsInput, embeddingSz, xRows - yRows + 1);
 
-        final int kRows = weightGrads.dims[2];
+        final int kRows = weightGrads.dims[3];
 
         // For each feature map
         for (int k = 0; k < nFeatureMapsInput; ++k)
@@ -113,13 +113,14 @@ public class FilterOps
             // The weight gradient is the size of the kernel itself, which is a cube of size input depth x kh x kw
             for (int l = 0; l < nFeatureMapsOutput; ++l)
             {
-                // For each input row
-                for (int i = 0; i < kRows; ++i)
+                // For each input col, embeddingSz is also kCols essentially
+                for (int j = 0; j < embeddingSz; ++j)
                 {
-                    // For each input col, embeddingSz is also kCols essentially
-                    for (int j = 0; j < embeddingSz; ++j)
+                    // For each input row
+                    for (int i = 0; i < kRows; ++i)
                     {
-                        int wAddr = ((l * nFeatureMapsInput + k) * kRows + i) * embeddingSz + j;
+
+                        int wAddr = ((l * nFeatureMapsInput + k) * embeddingSz + j) * kRows + i;
                         // For input depth
                         double acc = 0;
 
@@ -127,8 +128,8 @@ public class FilterOps
                         for (int m = 0; m < yRows; ++m)
                         {
 
-                            int xAddr = (k * xRows + i + m) * embeddingSz + j;
-                            int yAddr = (l * yRows + m) * embeddingSz + j;
+                            int xAddr = (k * embeddingSz + j) * xRows + i + m;
+                            int yAddr = (l * embeddingSz + j) * yRows + m;
                             acc += x.d[xAddr] * ygrad.d[yAddr];
                         }
                         weightGrads.d[wAddr] = acc;
@@ -292,81 +293,130 @@ public class FilterOps
 
     }
 
-    public static Tensor corr1(Tensor data, Tensor kernels, double[] biases)
+    public static Tensor fftfilt(FFTOps fft, Tensor data, Tensor kernels, double[] biases, boolean corr)
     {
-        final int iT = data.dims[1];
-        final int embedSz = data.dims[2];
+        final int iT = data.dims[2];
+        final int embedSz = data.dims[1];
         final int nK = kernels.dims[0];
         final int kL = kernels.dims[1];
-        final int kW = kernels.dims[2];
+        final int kW = kernels.dims[3];
         final int oT = iT - kW + 1;
-        Tensor output = new Tensor(nK, oT, embedSz);
-
+        Tensor output = new Tensor(nK, embedSz, oT);
+        double[] z = new double[oT];
         for (int k = 0; k < nK; ++k)
         {
             final double bias = biases == null ? 0.0 : biases[k];
 
-            for (int i = 0; i < oT; ++i)
+            for (int j = 0, dOff = 0; j < embedSz; ++j, dOff += iT)
             {
-                for (int j = 0; j < embedSz; ++j)
+                for (int l = 0; l < kL; ++l)
                 {
-                    double acc = 0.;
+                    int dataAddr0 = (l * embedSz + j) * iT;
+                    int kernAddr0 = ((k * kL + l) * embedSz + j) * kW;
+                    int outAddr0 = (k * embedSz + j) * oT;
 
-                    for (int l = 0; l < kL; ++l)
+                    fft.filter(data.d, dataAddr0, iT, kernels.d, kernAddr0, kW, z, corr);
+                    for (int i = 0; i < oT; ++i)
                     {
-                        for (int m = 0; m < kW; ++m)
-                        {
-                            int dataAddr = (l * iT + i + m) * embedSz + j;
-                            int kernAddr = ((k * kL + l) * kW + m) * embedSz + j;
-                            acc += data.d[dataAddr] * kernels.d[kernAddr];
-                        }
+                        output.d[outAddr0 + i] += z[i] + bias;
                     }
-                    output.d[(k * oT + i) * embedSz + j] = acc + bias;
                 }
             }
         }
         return output;
     }
+
+    public static Tensor corr1(Tensor data, Tensor kernels, double[] biases)
+    {
+        final int iT = data.dims[2];
+        final int embedSz = data.dims[1];
+        final int nK = kernels.dims[0];
+        final int kL = kernels.dims[1];
+        final int kW = kernels.dims[3];
+        final int oT = iT - kW + 1;
+        Tensor output = new Tensor(nK, embedSz, oT);
+
+        for (int k = 0; k < nK; ++k)
+        {
+            final double bias = biases == null ? 0.0 : biases[k];
+
+            for (int j = 0; j < embedSz; ++j)
+            {
+                final int outAddr0 = (k * embedSz + j) * oT;
+
+                for (int i = 0; i < oT; ++i)
+                {
+                    output.d[outAddr0 + i] = bias;
+                }
+
+                for (int l = 0; l < kL; ++l)
+                {
+                    final int dataAddr0 = (l * embedSz + j) * iT;
+                    final int kernAddr0 = ((k * kL + l) * embedSz + j) * kW;
+
+                    for (int i = 0; i < oT; ++i)
+                    {
+                        final int outAddr = outAddr0 + i;
+                        for (int m = 0; m < kW; ++m)
+                        {
+                            final int dataAddr = dataAddr0 + i + m;
+                            final int kernAddr = kernAddr0 + m;
+                            output.d[outAddr] += data.d[dataAddr] * kernels.d[kernAddr];
+                        }
+                    }
+                }
+            }
+        }
+        return output;
+    }
+
 
     public static Tensor conv1(Tensor data, Tensor kernels, double[] biases)
     {
-        final int iT = data.dims[1];
-        final int embedSz = data.dims[2];
+        final int iT = data.dims[2];
+        final int embedSz = data.dims[1];
         final int nK = kernels.dims[0];
         final int kL = kernels.dims[1];
         // Note that this is still the 3rd argument.  Now the fourth arg is not used
-        final int kW = kernels.dims[2];
+        final int kW = kernels.dims[3];
         final int oT = iT - kW + 1;
-        Tensor output = new Tensor(nK, oT, embedSz);
+        Tensor output = new Tensor(nK, embedSz, oT);
 
         for (int k = 0; k < nK; ++k)
         {
             final double bias = biases == null ? 0.0 : biases[k];
 
-            for (int i = 0; i < oT; ++i)
+            for (int j = 0; j < embedSz; ++j)
             {
-                for (int j = 0; j < embedSz; ++j)
-                {
-                    double acc = 0.;
+                final int outAddr0 = (k * embedSz + j) * oT;
 
-                    for (int l = 0; l < kL; ++l)
+                for (int i = 0; i < oT; ++i)
+                {
+                    output.d[outAddr0 + i] = bias;
+                }
+
+                for (int l = 0; l < kL; ++l)
+                {
+
+                    final int dataAddr0 = (l * embedSz + j) * iT;
+                    final int kernAddr0 = ((k * kL + l) * embedSz + j) * kW;
+
+
+                    for (int i = 0; i < oT; ++i)
                     {
+                        final int outAddr = outAddr0 + i;
                         for (int m = 0; m < kW; ++m)
                         {
-                            int dataAddr = (l * iT + i + m) * embedSz + j;
-                            int mh = kW - m - 1;
-                            int kernAddr = ((k * kL + l) * kW + mh) * embedSz + j;
-                            acc += data.d[dataAddr] * kernels.d[kernAddr];
+                            final int dataAddr = dataAddr0 + i + m;
+                            final int kernAddr = kernAddr0 + (kW - m - 1);
+                            output.d[outAddr] += data.d[dataAddr] * kernels.d[kernAddr];
                         }
                     }
-                    output.d[(k * oT + i) * embedSz + j] = acc + bias;
                 }
             }
         }
         return output;
     }
-
-
 
     // In this case, we have several feature maps, each is a kernel of
 

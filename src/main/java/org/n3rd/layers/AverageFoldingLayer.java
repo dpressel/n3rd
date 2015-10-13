@@ -42,24 +42,26 @@ public class AverageFoldingLayer extends AbstractLayer
         final int outEmbeddingSz = embeddingSz/k;
 
         // Do a resize() here!
-        output = new Tensor(featureMapSz, numFrames, outEmbeddingSz);
+        output = new Tensor(featureMapSz, outEmbeddingSz, numFrames);
         output.reset(0.);
 
         double div = 1.0 / k;
         for (int l = 0; l < featureMapSz; ++l)
         {
-            for (int i = 0; i < numFrames; ++i)
+            for (int j = 0, p = 0; j < embeddingSz; j += k, ++p)
             {
-                int obase = (l * numFrames + i) * outEmbeddingSz;
-                int ibase = (l * numFrames + i) * embeddingSz;
-                for (int j = 0, p = 0; j < embeddingSz; j += k, ++p)
+                for (int i = 0; i < numFrames; ++i)
                 {
-                    output.d[obase + p] = 0.0;
+                    int oAddr = (l * outEmbeddingSz + p) * numFrames + i;
+
+
+                    output.d[oAddr] = 0.0;
                     for (int m = 0; m < k; ++m)
                     {
-                        output.d[obase + p] += z.d[ibase + j + m];
+                        int iAddr = (l * embeddingSz + j + m) * numFrames + i;
+                        output.d[oAddr] += z.d[iAddr];
                     }
-                    output.d[obase + p] *= div;
+                    output.d[oAddr] *= div;
                 }
             }
         }
@@ -72,21 +74,21 @@ public class AverageFoldingLayer extends AbstractLayer
     public Tensor backward(Tensor chainGrad, double y)
     {
 
-        grads = new Tensor(featureMapSz, numFrames, embeddingSz);
+        grads = new Tensor(featureMapSz, embeddingSz, numFrames);
         double div = 1.0 / k;
         int outEmbeddingSz = embeddingSz/k;
         for (int l = 0; l < featureMapSz; ++l)
         {
             for (int i = 0; i < numFrames; ++i)
             {
-                int obase = (l * numFrames + i) * outEmbeddingSz;
-                int ibase = (l * numFrames + i) * embeddingSz;
                 for (int j = 0, p = 0; j < embeddingSz; j += k, ++p)
                 {
-                    double value = chainGrad.d[obase + p] * div;
+                    int oAddr = (l * outEmbeddingSz + p) * numFrames + i;
+                    double value = chainGrad.d[oAddr] * div;
                     for (int m = 0; m < k; ++m)
                     {
-                        grads.d[ibase + j + m] = value;
+                        int iAddr = (l * embeddingSz + j + m) * numFrames + i;
+                        grads.d[iAddr] = value;
                     }
                 }
             }

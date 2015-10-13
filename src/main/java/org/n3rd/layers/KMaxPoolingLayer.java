@@ -48,7 +48,7 @@ public class KMaxPoolingLayer extends AbstractLayer
         this.k = k;
         this.embeddingSz = embedSz;
         this.featureMapSz = featureMapSz;
-        output = new Tensor(featureMapSz, k, embeddingSz);
+        output = new Tensor(featureMapSz, embeddingSz, k);
         origin = new int[output.size()];
     }
 
@@ -109,7 +109,7 @@ public class KMaxPoolingLayer extends AbstractLayer
         numFrames = z.size()/embeddingSz/featureMapSz;
 
 
-        grads = new Tensor(featureMapSz, numFrames, embeddingSz);
+        grads = new Tensor(featureMapSz, embeddingSz, numFrames);
 
         int sz = output.size();
 
@@ -129,8 +129,7 @@ public class KMaxPoolingLayer extends AbstractLayer
 
                 for (int i = 0; i < numFrames; ++i)
                 {
-                    int inAddr = (l * numFrames + i) * embeddingSz + j;
-
+                    int inAddr = (l * embeddingSz + j) * numFrames + i;
                     offsets.add(new Offset(inAddr, z.d[inAddr]));
 
                 }
@@ -140,7 +139,7 @@ public class KMaxPoolingLayer extends AbstractLayer
                 sz = offsetList.size();
                 for (int i = 0; i < sz; ++i)
                 {
-                    int outAddr = (l * k + i) * embeddingSz + j;
+                    int outAddr = (l * embeddingSz + j) * k + i;
                     origin[outAddr] = offsetList.get(i).index;
                     output.d[outAddr] = offsetList.get(i).value;
                 }
@@ -164,7 +163,7 @@ public class KMaxPoolingLayer extends AbstractLayer
                 for (int j = 0; j < embeddingSz; ++j)
                 {
 
-                    int outAddr = (l * k + i) * embeddingSz + j;
+                    int outAddr = (l * embeddingSz + j) * k + i;
                     int inAddr = origin[outAddr];
                     if (inAddr == -100)
                     {

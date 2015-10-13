@@ -8,7 +8,7 @@ import java.util.LinkedHashMap;
 
 /**
  * Temporal convolution with support for feature maps AND preserving word embeddings
- * <p/>
+ * <p>
  * This thing is different from the one in Torch.  In torch, the frame width is essentially a feature map
  * and the output is also.  This means that embeddings are not preserved between layers.
  * Assuming we want to preserve that locally, we would do this differently, making the embedding size 1,
@@ -32,13 +32,11 @@ public class TemporalConvolutionalLayer extends AbstractLayer
     public TemporalConvolutionalLayer(int nK, int kL, int kW, int embeddingSize)
     {
 
-        weights = new Tensor(nK, kL, kW, embeddingSize);
-        gradsW = new Tensor(nK, kL, kW, embeddingSize);
+        weights = new Tensor(nK, kL, embeddingSize, kW);
+        gradsW = new Tensor(nK, kL, embeddingSize, kW);
         biases = new double[nK];
         biasGrads = new double[nK];
 
-
-        // For each kernel, randomly initialize all weights
         for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
             weights.d[i] = rand();
@@ -53,7 +51,6 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         double stdv = 1. / Math.sqrt(6. / 28.);
         double stdv2 = stdv * 2;
         double d = Math.random() * stdv2 - stdv;
-        //double d = RND[Current++ % RND.length] * stdv2 - stdv;
         return d;
     }
 
@@ -65,16 +62,14 @@ public class TemporalConvolutionalLayer extends AbstractLayer
 
 
         final int inputFeatureMapSz = weights.dims[1];
-        final int embeddingSz = weights.dims[3];
+        final int embeddingSz = weights.dims[2];
         final int numFrames = z.size() / embeddingSz / inputFeatureMapSz;
 
         try
         {
-            input = new Tensor(z.d, inputFeatureMapSz, numFrames, embeddingSz);
-            grads = new Tensor(inputFeatureMapSz, numFrames, embeddingSz);
-            // 10x faster or more than using corr1MM
-            output = FilterOps.corr1(input, weights, biases); // biases
-
+            input = new Tensor(z.d, inputFeatureMapSz, embeddingSz, numFrames);
+            grads = new Tensor(inputFeatureMapSz, embeddingSz, numFrames);
+            output = FilterOps.corr1(input, weights, biases);
             return output;
         }
         catch (Exception ex)
@@ -88,9 +83,9 @@ public class TemporalConvolutionalLayer extends AbstractLayer
     public Tensor backward(Tensor chainGrad, double y)
     {
         final int featureMapSz = weights.dims[0];
-        final int embeddingSz = weights.dims[3];
-        final int kW = weights.dims[2];
-        final int numFrames = input.dims[1];
+        final int embeddingSz = weights.dims[2];
+        final int kW = weights.dims[3];
+        final int numFrames = input.dims[2];
         final int convOutputSz = numFrames - kW + 1;
         // The desired dims going backwards is going to be
 
@@ -107,7 +102,7 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         int zpFrameSize = numFrames + kW - 1;
         int zp = zpFrameSize - convOutputSz;
 
-        Tensor zpChainGrad = Tensor.embed(chainGrad, zp, 0);
+        Tensor zpChainGrad = Tensor.embed(chainGrad, 0, zp);
         Tensor tWeights = Tensor.transposeWeight4D(weights);
         Tensor gradUps = FilterOps.conv1(zpChainGrad, tWeights, null);
 
@@ -181,16 +176,22 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         // Each weight sees every x except xi < w.length
 
         //weights = new Tensor(nK, kL, kW, embeddingSize);
+        int nK = weights.dims[0];
+        int kL = weights.dims[1];
+        int embedSz = weights.dims[2];
+        int kW = weights.dims[3];
+
         int z = 0;
-        for (int k = 0; k < weights.dims[0]; ++k)
+        for (int k = 0; k < nK; ++k)
         {
-            for (int l = 0; l < weights.dims[1]; ++l)
+            for (int l = 0; l < kL; ++l)
             {
-                // kW
-                for (int i = 0; i < weights.dims[2]; ++i)
+                for (int j = 0; j < embedSz; ++j)
                 {
-                    for (int j = 0; j < weights.dims[3]; ++j)
+                    // kW
+                    for (int i = 0; i < kW; ++i)
                     {
+
                         double wd = weights.d[z];
                         double wdp = wd + 1e-4;
                         double wdm = wd - 1e-4;
