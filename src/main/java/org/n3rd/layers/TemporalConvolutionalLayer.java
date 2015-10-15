@@ -52,6 +52,7 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         //final int embeddingSz = weights.dims[3];
         double stdv = 1. / Math.sqrt(6. / 28.);
         double stdv2 = stdv * 2;
+        //double d = RND[Current++ % RND.length] * stdv2 - stdv;
         double d = Math.random() * stdv2 - stdv;
         return d;
     }
