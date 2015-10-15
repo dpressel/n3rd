@@ -4,6 +4,7 @@ package org.n3rd.machine;
 import org.jblas.NativeBlas;
 import org.n3rd.Tensor;
 import org.n3rd.layers.AbstractLayer;
+import org.sgdtk.ArrayDouble;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -76,11 +77,12 @@ public class FullyConnectedLayerBlas extends AbstractLayer
         gradsW = new Tensor(outputLength, this.inputLength);
         biases = new double[outputLength];
         biasGrads = new double[outputLength];
+
         for (int i = 0, ibase = 0; i < outputLength; ++i, ibase += this.inputLength)
         {
             for (int j = 0; j < this.inputLength; ++j)
             {
-                weights.d[ibase + j] = rand();
+                weights.set(ibase + j, rand());
             }
             biases[i] = rand();
         }
@@ -98,8 +100,12 @@ public class FullyConnectedLayerBlas extends AbstractLayer
     public Tensor forward(Tensor x)
     {
         this.z = x;
-        output.reset(0.);
-        NativeBlas.dgemv('N', outputLength, inputLength, 1.0, weights.d, 0, outputLength, z.d, 0, 1, 1.0, output.d, 0, 1);
+        final ArrayDouble zA = z.getArray();
+        final ArrayDouble wA = weights.getArray();
+        ArrayDouble oA = output.getArray();
+
+        output.constant(0.);
+        NativeBlas.dgemv('N', outputLength, inputLength, 1.0, wA.v, 0, outputLength, zA.v, 0, 1, 1.0, oA.v, 0, 1);
         return output;
 
     }
@@ -114,15 +120,19 @@ public class FullyConnectedLayerBlas extends AbstractLayer
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
+        ArrayDouble cgA = chainGrad.getArray();
+        ArrayDouble gA = grads.getArray();
+        ArrayDouble wA = weights.getArray();
+        ArrayDouble gwA = gradsW.getArray();
+        ArrayDouble zA = z.getArray();
+        grads.constant(0.);
 
-        grads.reset(0.);
-
-        NativeBlas.dgemv('T', outputLength, inputLength, 1.0, weights.d, 0, outputLength, chainGrad.d, 0, 1, 1.0, grads.d, 0, 1);
-        NativeBlas.dger(outputLength, inputLength, 1.0, chainGrad.d, 0, 1, z.d, 0, 1, gradsW.d, 0, outputLength);
+        NativeBlas.dgemv('T', outputLength, inputLength, 1.0, wA.v, 0, outputLength, cgA.v, 0, 1, 1.0, gA.v, 0, 1);
+        NativeBlas.dger(outputLength, inputLength, 1.0, cgA.v, 0, 1, zA.v, 0, 1, gwA.v, 0, outputLength);
 
         for (int i = 0; i < outputLength; ++i)
         {
-            biasGrads[i] = chainGrad.d[i];
+            biasGrads[i] = chainGrad.at(i);
         }
         return grads;
 

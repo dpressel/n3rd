@@ -89,31 +89,22 @@ public class TemporalConvolutionalLayerTest
     double SQ_M_1000 = 3886.2073516200003;
     double SQ_M_W_1000 = 11477.130271620003;
 
-
-    @Test
-    public void testRandInit() throws Exception
-    {
-        TemporalConvolutionalLayer l = new TemporalConvolutionalLayer(4, 1, 7, 300);
-        System.out.println(l.weights.d.length);
-
-    }
-
     @Test
     public void testForward() throws Exception
     {
         TemporalConvolutionalLayer l = new TemporalConvolutionalLayer(1, 1, 3, 2);
         for (int i = 0; i < K.length; ++i)
         {
-            l.weights.d[i] = K[i];
+            l.weights.set(i, K[i]);
         }
         Tensor d = new Tensor(D, 1, 2, 6);
         Tensor output = l.forward(d);
 
         assertEquals(output.size(), OFM1IFM1.length);
-        double[] x = output.d;
+
         for (int i = 0; i < OFM1IFM1.length; ++i)
         {
-            assertEquals(x[i], OFM1IFM1[i]);
+            assertEquals(output.get(i), OFM1IFM1[i]);
         }
 
     }
@@ -127,19 +118,16 @@ public class TemporalConvolutionalLayerTest
         Tensor weights = l.getParams();
         for (int i = 0; i < IFM2K.length; ++i)
         {
-            weights.d[i] = IFM2K[i];
+            weights.set(i, IFM2K[i]);
         }
 
 
         Tensor d = new Tensor(IFM2D, 2, 2, 6);
         Tensor output = l.forward(d);
 
-        double[] x = output.d;
-
         for (int i = 0; i < OFM1IFM2.length; ++i)
         {
-            System.out.println(x[i]);
-            assertEquals(x[i], OFM1IFM2[i]);
+            assertEquals(output.get(i), OFM1IFM2[i]);
         }
 
     }
@@ -153,18 +141,16 @@ public class TemporalConvolutionalLayerTest
         Tensor weights = l.getParams();
         for (int i = 0; i < IFM2OFM3K.length; ++i)
         {
-            weights.d[i] = IFM2OFM3K[i];
+            weights.set(i, IFM2OFM3K[i]);
         }
 
         Tensor d = new Tensor(IFM2D, 2, 2, 6);
         Tensor output = l.forward(d);
 
-        double[] x = output.d;
-
         assertEquals(output.size(), OFM3IFM2D.length);
         for (int i = 0; i < OFM3IFM2D.length; ++i)
         {
-            assertEquals(x[i], OFM3IFM2D[i], 1e-6);
+            assertEquals(output.get(i), OFM3IFM2D[i], 1e-6);
         }
         //printRowMajor(((DenseVectorN) output).getX(), 3, 4, 2);
     }
@@ -177,19 +163,13 @@ public class TemporalConvolutionalLayerTest
         Tensor weights = l.getParams();
         for (int i = 0; i < IFM2OFM3K.length; ++i)
         {
-            weights.d[i] = IFM2OFM3K[i];
+            weights.set(i, IFM2OFM3K[i]);
         }
 
         Tensor d = new Tensor(IFM2D, 2, 2, 6);
         Tensor output = l.forward(d);
 
-        int sz = output.size();
-
-        for (int i = 0; i < sz; ++i)
-        {
-            //ograd[i] = 1;
-            output.d[i] /= 1000.;
-        }
+        output.scale( 1 / 1000.);
         Tensor grads = l.backward(output, 0);
 
         Tensor gw = l.getParamGrads();
@@ -199,10 +179,10 @@ public class TemporalConvolutionalLayerTest
         double accW = 0.;
         for (int i = 0, gsz = gw.size(); i < gsz; ++i)
         {
-            acc += gw.d[i]*gw.d[i];
-            weights.d[i] += gw.d[i];
-            accW += weights.d[i] * weights.d[i];
-            gw.d[i] = 0;
+            acc += gw.get(i) * gw.get(i);
+            weights.addi(i, gw.get(i));
+            accW += weights.get(i) * weights.get(i);//[i];
+            gw.set(i, 0);
         }
         assertEquals(SQ_M_1000, acc, 1e-6);
         assertEquals(SQ_M_W_1000, accW, 1e-6);
@@ -210,7 +190,7 @@ public class TemporalConvolutionalLayerTest
 
         for (int i = 0; i < OFM3IFM2G_1000.length; ++i)
         {
-            assertEquals(OFM3IFM2G_1000[i], grads.d[i], 1e-6);
+            assertEquals(OFM3IFM2G_1000[i], grads.at(i), 1e-6);
         }
     }
 }

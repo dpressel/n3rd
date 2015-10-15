@@ -1,6 +1,7 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
+import org.sgdtk.ArrayDouble;
 
 /**
  * Spatial max pooling layer on a fixed height/width input
@@ -14,7 +15,7 @@ public class MaxPoolingLayer extends AbstractLayer
 {
 
     private int[] inputDims;
-    private int[]  origin;
+    private int[] origin;
 
     // Could save some memory here, but since size is fixed, we are reusing it over and over this way
 
@@ -43,9 +44,12 @@ public class MaxPoolingLayer extends AbstractLayer
     public Tensor forward(Tensor z)
     {
 
-        output.reset(0.);
+
+        ArrayDouble oA = output.getArray();
+
         for (int i = 0; i < origin.length; ++i)
         {
+            oA.set(i, 0);
             origin[i] = 0;
         }
         final int kL = inputDims[0];
@@ -64,12 +68,13 @@ public class MaxPoolingLayer extends AbstractLayer
                     int oj = (int) Math.floor(j / (double) dw);
                     int outAddr = (l * oH + oi) * oW + oj;
                     int inAddr = (l * iH + i) * iW + j;
-                    if (output.d[outAddr] < z.d[inAddr])
+
+                    final double zi = z.at(inAddr);
+                    if (oA.at(outAddr) < zi)
                     {
-                        output.d[outAddr] = z.d[inAddr];
+                        oA.set(outAddr, zi);
                         origin[outAddr] = inAddr;
                     }
-
                 }
             }
 
@@ -87,6 +92,7 @@ public class MaxPoolingLayer extends AbstractLayer
         final int iW = inputDims[2];
         final int oH = output.dims[1];
         final int oW = output.dims[2];
+        ArrayDouble gA = grads.getArray();
 
         for (int l = 0; l < kL; ++l)
         {
@@ -99,7 +105,7 @@ public class MaxPoolingLayer extends AbstractLayer
                     int oj = (int)Math.floor(j / (double) dw);
                     int outAddr = (l *oH + oi) * oW + oj;
                     int inAddr = (l * iH + i) * iW + j;
-                    grads.d[inAddr] = origin[outAddr] == inAddr ? chainGrad.d[outAddr] : 0.;
+                    gA.set(inAddr, origin[outAddr] == inAddr ? chainGrad.at(outAddr) : 0.);
                 }
             }
         }

@@ -1,6 +1,7 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
+import org.sgdtk.ArrayDouble;
 
 /**
  * ReLU as its typically described -- max(0, d)
@@ -12,7 +13,8 @@ public class ReLULayer extends AbstractLayer
 
     public ReLULayer()
     {
-
+        output = new Tensor(1);
+        grads = new Tensor(1);
     }
     //        /
     //       /
@@ -29,13 +31,15 @@ public class ReLULayer extends AbstractLayer
     public Tensor forward(Tensor z)
     {
 
-        int sz = z.size();
-        output = new Tensor(sz);
-        grads = new Tensor(sz);
+        final int sz = z.size();
+        output.resize(sz);
+        grads.resize(sz);
+
+        ArrayDouble oA = output.getArray();
         for (int i = 0; i < sz; ++i)
         {
-            double zi = z.d[i];
-            output.d[i] = relu(zi);
+            double zi = z.at(i);
+            oA.set(i, relu(zi));
         }
         return output;
     }
@@ -44,11 +48,12 @@ public class ReLULayer extends AbstractLayer
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
-        int sz = chainGrad.size();
+        final int sz = chainGrad.size();
 
+        ArrayDouble gA = grads.getArray();
         for (int i = 0; i < sz; ++i)
         {
-            grads.d[i] = chainGrad.d[i] * drelu(output.d[i]);
+            gA.set(i, chainGrad.at(i) * drelu(output.at(i)));
         }
         return grads;
     }

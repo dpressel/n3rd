@@ -2,6 +2,7 @@ package org.n3rd.layers;
 
 import org.n3rd.Tensor;
 import org.n3rd.ops.FilterOps;
+import org.sgdtk.ArrayDouble;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,7 +36,7 @@ public class SpatialConvolutionalLayer extends AbstractLayer
         }
     }
 
-    int[] outputDims;
+    int[] inputDims;
 
     public SpatialConvolutionalLayer()
     {
@@ -53,13 +54,14 @@ public class SpatialConvolutionalLayer extends AbstractLayer
         biases = new double[nK];
         biasGrads = new double[nK];
 
-        this.input = new Tensor(null, inputDims);
         this.grads = new Tensor(inputDims);
-        this.outputDims = new int[] { nK, iH - kH + 1, iW - kW + 1 };
+
         // For each kernel, randomly initialize all weights
+        output  = new Tensor( nK, iH - kH + 1, iW - kW + 1);
+
         for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
-            weights.d[i] = rand();
+            weights.set(i, rand());
         }
 
     }
@@ -67,7 +69,7 @@ public class SpatialConvolutionalLayer extends AbstractLayer
     public double rand()
     {
         //double stdv = 1. / Math.sqrt(input.dims[1] * input.dims[2]);
-        double stdv = 1. / Math.sqrt(input.dims[1] * weights.dims[2] * weights.dims[3]);
+        double stdv = 1. / Math.sqrt(grads.dims[1] * weights.dims[2] * weights.dims[3]);
         double stdv2 = stdv * 2;
         return Math.random() * stdv2 - stdv;
     }
@@ -75,63 +77,48 @@ public class SpatialConvolutionalLayer extends AbstractLayer
     @Override
     public Tensor forward(Tensor z)
     {
-        // NOT A COPY
-        input.d = z.d;
-        output = FilterOps.corr2(input, weights, null);//biases);
-
+        input = new Tensor(z.getArray(), grads.dims);
+        //z.copyTo(input);
+        FilterOps.corr2(input, weights, biases, output);
         return output;
-
     }
 
     // For every filter, do a convolution
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
-        final int iL = input.dims[0];
+        //final int iL = input.dims[0];
         final int iH = input.dims[1];
         final int iW = input.dims[2];
 
-        final int oH = outputDims[1];
-        final int oW = outputDims[2];
-        final int kL = weights.dims[1];
+        final int oH = output.dims[1];
+        final int oW = output.dims[2];
+        //final int kL = weights.dims[1];
         final int kH = weights.dims[2];
         final int kW = weights.dims[3];
 
         final int zpH = iH + kH - 1;
         final int zpW = iW + kW - 1;
 
-        this.grads.reset(0.);
-        Tensor zpChainGradCube = Tensor.embed(chainGrad, zpH - oH, zpW - oW);
+        Tensor zpChainGradCube = chainGrad.embed(zpH - oH, zpW - oW);
 
         int nK = weights.dims[0];
 
-        Tensor tWeights = Tensor.transposeWeight4D(weights);
+        Tensor tWeights = weights.transposeWeight4D();
 
         // This is actually what is failing.  Why?  Probably a bug in transpose weight 4D?
-        Tensor gradUps = FilterOps.conv2(zpChainGradCube, tWeights, null);
-
-        for (int i = 0, sz = gradUps.size(); i < sz; ++i)
-        {
-            this.grads.d[i] += gradUps.d[i];
-        }
+        FilterOps.conv2(zpChainGradCube, tWeights, null, grads);
 
         // This is correct, we know that the gradient of the weights is checking out
-        Tensor gradWUps = FilterOps.corr2Weights(input, chainGrad);
+        FilterOps.corr2Weights(input, chainGrad, gradsW);
 
-
-        for (int i = 0, sz = weights.size(); i < sz; ++i)
-        {
-            gradsW.d[i] += gradWUps.d[i];
-
-        }
         for (int l = 0; l < nK; ++l)
         {
             for (int i = 0, sz = chainGrad.size(); i < sz; ++i)
             {
-                this.biasGrads[l] += chainGrad.d[i];
+                this.biasGrads[l] += chainGrad.at(i);
             }
         }
-
 
         //// GRADIENT CHECK
         ////gradCheck(chainGradTensor);
@@ -141,33 +128,35 @@ public class SpatialConvolutionalLayer extends AbstractLayer
     }
 
 
-    void gradCheckX(Tensor outputLayerGradArray)
+    void gradCheckX(ArrayDouble outputLayerGradArray)
     {
 
         double sumX = 0.;
+
         for (int i = 0, sz = grads.size(); i < sz; ++i)
         {
-            sumX += grads.d[i];
+            sumX += grads.at(i);
         }
 
         double sumNumGrad = 0.;
+
         for (int i = 0, sz = input.size(); i < sz; ++i)
         {
-            double xd = input.d[i];
+            double xd = input.at(i);
             double xdp = xd + 1e-4;
             double xdm = xd - 1e-4;
+            input.set(i, xdp);
+            Tensor outputHigh = new Tensor(output.dims);
+            Tensor outputLow = new Tensor(output.dims);
+            FilterOps.corr2(input, weights, biases, outputHigh);
+            input.set(i, xdm);
+            FilterOps.corr2(input, weights, biases, outputLow);
+            input.set(i, xd);
 
-            input.d[i] = xdp;
-            Tensor outputHigh = FilterOps.corr2(input, weights, biases);
-
-            input.d[i] = xdm;
-            Tensor outputLow = FilterOps.corr2(input, weights, biases);
-
-            input.d[i] = xd;
             for (int j = 0, zsz = outputHigh.size(); j < zsz; ++j)
             {
-                double dxx = (outputHigh.d[j] - outputLow.d[j]) / (2 * 1e-4);
-                sumNumGrad += outputLayerGradArray.d[j] * dxx;
+                double dxx = (outputHigh.at(j) - outputLow.at(j)) / (2 * 1e-4);
+                sumNumGrad += outputLayerGradArray.at(j) * dxx;
             }
         }
         double absDelta = Math.abs(sumNumGrad - sumX);
@@ -180,21 +169,17 @@ public class SpatialConvolutionalLayer extends AbstractLayer
 
     // When we shift parameters, isolating each, we get the gradient WRT the parameters
     // In order to find the mathematical gradient, look at the
-    void gradCheck(Tensor chainGradTensor)
+    void gradCheck(ArrayDouble chainGrad)
     {
-
-
-        //Tensor output = FilterOps.corr2(input, weights, biases);
 
         double sumNumGrad = 0.;
         double sumGrad = 0.0;
-        for (int i = 0; i < gradsW.d.length; ++i)
-        {
-            sumGrad += this.gradsW.d[i];
-        }
-        // Each weight sees every x except xi < w.length
 
-        //weights = new Tensor(nK, kL, kW, embeddingSize);
+        for (int i = 0; i < gradsW.size(); ++i)
+        {
+            sumGrad += gradsW.at(i);
+        }
+
         int z = 0;
         for (int k = 0; k < weights.dims[0]; ++k)
         {
@@ -205,22 +190,27 @@ public class SpatialConvolutionalLayer extends AbstractLayer
                 {
                     for (int j = 0; j < weights.dims[3]; ++j)
                     {
-                        double wd = weights.d[z];
+                        double wd = weights.at(z);
                         double wdp = wd + 1e-4;
                         double wdm = wd - 1e-4;
                         // first add it
-                        weights.d[z] = wdp;
-                        Tensor outputHigh = FilterOps.corr2(input, weights, biases);
+                        weights.set(z, wdp);
 
-                        weights.d[z] = wdm;
-                        Tensor outputLow = FilterOps.corr2(input, weights, biases);
+                        Tensor outputHigh = new Tensor(output.dims);
+                        FilterOps.corr2(input, weights, biases, outputHigh);
 
-                        weights.d[z] = wd;
+                        weights.set(z, wdm);
+
+                        Tensor outputLow = new Tensor(output.dims);
+                        FilterOps.corr2(input, weights, biases, outputLow);
+
+                        weights.set(z, wd);
+
                         ++z;
 
-                        for (int w = 0; w < outputHigh.d.length; ++w)
+                        for (int w = 0; w < outputHigh.size(); ++w)
                         {
-                            double dxx = chainGradTensor.d[w] * (outputHigh.d[w] - outputLow.d[w]) / (2 * 1e-4);
+                            double dxx = chainGrad.at(w) * (outputHigh.at(w) - outputLow.at(w)) / (2 * 1e-4);
                             sumNumGrad += dxx;
                         }
                     }

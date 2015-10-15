@@ -47,13 +47,14 @@ public class FilterOpsTest
     {
         Tensor data = new Tensor(D, new int[]{1, 2, 6});
         Tensor kernel = new Tensor(K, new int[]{1,1,2,3});
-        Tensor output = FilterOps.corr1(data, kernel, null);
+        Tensor output = new Tensor(1, 2, O_NARROW.length/2);
+        FilterOps.corr1(data, kernel, null, output);
         assertEquals(output.dims[0], 1);
         assertEquals(output.dims[1], 2);
         assertEquals(output.dims[2], O_NARROW.length/2);
         for (int i = 0; i < O_NARROW.length; ++i)
         {
-            assertEquals(output.d[i], O_NARROW[i]);
+            assertEquals(output.get(i), O_NARROW[i]);
         }
 
     }
@@ -63,11 +64,12 @@ public class FilterOpsTest
     {
         Tensor data = new Tensor(D, new int[]{1, 2, 6});
         Tensor kernel = new Tensor(K, new int[]{1,1,2,3});
-        Tensor output = FilterOps.conv2(data, kernel, null);
+        Tensor output = new Tensor(1, 2, O2_CONV_NARROW.length/2);
+        FilterOps.conv2(data, kernel, null, output);
         assertEquals(output.dims[0], 1);
         for (int i = 0; i < O2_CONV_NARROW.length; ++i)
         {
-            assertEquals(output.d[i], O2_CONV_NARROW[i]);
+            assertEquals(output.get(i), O2_CONV_NARROW[i]);
         }
     }
 
@@ -76,11 +78,12 @@ public class FilterOpsTest
     {
         Tensor data = new Tensor(D, new int[]{1, 2, 6});
         Tensor kernel = new Tensor(K, new int[]{1,1,2,3});
-        Tensor output = FilterOps.corr2(data, kernel, null);
+        Tensor output = new Tensor(1, 2, O2_NARROW.length/2);
+        FilterOps.corr2(data, kernel, null, output);
         assertEquals(output.dims[0], 1);
         for (int i = 0; i < O2_NARROW.length; ++i)
         {
-            assertEquals(output.d[i], O2_NARROW[i]);
+            assertEquals(output.get(i), O2_NARROW[i]);
         }
     }
 
@@ -94,13 +97,14 @@ public class FilterOpsTest
             k[i] = k[K.length+i] = K[i];
         }
         Tensor kernel = new Tensor(k, new int[]{2,1,2,3});
-        Tensor output = FilterOps.corr2(data, kernel, null);
+        Tensor output = new Tensor(2, 1, 4);
+                FilterOps.corr2(data, kernel, null, output);
         assertEquals(output.dims[0], 2);
         for (int i = 0; i < O2_NARROW.length; ++i)
         {
             double o2n = O2_NARROW[i];
-            assertEquals(output.d[i], o2n);
-            assertEquals(output.d[O2_NARROW.length+i], o2n);
+            assertEquals(output.get(i), o2n);
+            assertEquals(output.get(O2_NARROW.length+i), o2n);
         }
     }
 
@@ -114,13 +118,14 @@ public class FilterOpsTest
             k[i] = k[K.length+i] = K[i];
         }
         Tensor kernel = new Tensor(k, new int[]{2,1,2,3});
-        Tensor output = FilterOps.corr1(data, kernel, null);
+        Tensor output = new Tensor(2, 2, 4);
+        FilterOps.corr1(data, kernel, null, output);
         assertEquals(output.dims[0], 2);
         for (int i = 0; i < O_NARROW.length; ++i)
         {
             double on = O_NARROW[i];
-            assertEquals(output.d[i], on);
-            assertEquals(output.d[O_NARROW.length+i], on);
+            assertEquals(output.get(i), on);
+            assertEquals(output.get(O_NARROW.length+i), on);
         }
     }
 
@@ -130,16 +135,17 @@ public class FilterOpsTest
     public void testWideCorr1() throws Exception
     {
         Tensor data = new Tensor(D, new int[]{1, 2, 6});
-        Tensor zp = Tensor.embed(data, 0, 4);
+        Tensor zp = data.embed(0, 4);
         Tensor kernel = new Tensor(K, new int[]{1,1,2,3});
 
-        Tensor output = FilterOps.corr1(zp, kernel, null);
+        Tensor output = new Tensor(1, 2, 8);
+        FilterOps.corr1(zp, kernel, null, output);
         assertEquals(output.dims[0], 1);
         assertEquals(output.dims[1], 2);
         assertEquals(output.dims[2], O_WIDE.length/2);
         for (int i = 0; i < O_WIDE.length; ++i)
         {
-            assertEquals(output.d[i], O_WIDE[i]);
+            assertEquals(output.get(i), O_WIDE[i]);
         }
 
     }
@@ -147,16 +153,17 @@ public class FilterOpsTest
     public void testWideConv1() throws Exception
     {
         Tensor data = new Tensor(D, new int[]{1, 2, 6});
-        Tensor zp = Tensor.embed(data, 0, 4);
+        Tensor zp = data.embed(0, 4);
         Tensor kernel = new Tensor(K, new int[]{1,1,2,3});
 
-        Tensor output = FilterOps.conv1(zp, kernel, null);
+        Tensor output = new Tensor(1, 2, 8);
+        FilterOps.conv1(zp, kernel, null, output);
         assertEquals(output.dims[0], 1);
         assertEquals(output.dims[1], 2);
         assertEquals(output.dims[2], O_CONV_WIDE.length/2);
         for (int i = 0; i < O_CONV_WIDE.length; ++i)
         {
-            assertEquals(output.d[i], O_CONV_WIDE[i]);
+            assertEquals(output.get(i), O_CONV_WIDE[i]);
         }
 
     }
@@ -166,13 +173,14 @@ public class FilterOpsTest
     {
         Tensor data = new Tensor(D, new int[]{1, 2, 6});
         Tensor kernel = new Tensor(K, new int[]{1, 1,2,3});
-        Tensor output = FilterOps.conv1(data, kernel, null);
+        Tensor output = new Tensor(1, 2, 4);
+        FilterOps.conv1(data, kernel, null, output);
         assertEquals(output.dims[0], 1);
         assertEquals(output.dims[1], 2);
         assertEquals(output.dims[2], O_CONV_NARROW.length/2);
         for (int i = 0; i < O_CONV_NARROW.length; ++i)
         {
-            assertEquals(output.d[i], O_CONV_NARROW[i]);
+            assertEquals(output.get(i), O_CONV_NARROW[i]);
         }
     }
 

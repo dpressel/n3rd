@@ -94,7 +94,8 @@ public class NeuralNetModel implements WeightModel
         {
             gg = new double[layers.length][];
         }
-        Tensor chainGrad = new Tensor(new double[] { dLoss }, 1);
+
+        Tensor chainGrad = new Tensor(new ArrayDouble(1, dLoss), 1);
 
 
         for (int k = layers.length - 1; k >= 0; --k)
@@ -112,29 +113,34 @@ public class NeuralNetModel implements WeightModel
             if (weights != null)
             {
 
+                ArrayDouble weightsArray = weights.getArray();
+
                 // Initialize Adagrad for layer k
                 if (gg[k] == null)
                 {
-                    gg[k] = new double[weights.d.length];
+                    gg[k] = new double[weights.size()];
                 }
-                Tensor weightGrads = layer.getParamGrads();
+                ArrayDouble weightGradsArray = layer.getParamGrads().getArray();
 
                 int sz = weights.size();
 
                 for (int i = 0; i < sz; ++i)
                 {
-                    if (weightGrads.d[i] == 0.0)
+                    double gwi = weightGradsArray.at(i);
+                    if (gwi == 0.0)
                         continue;
 
                     // Adagrad update
-                    gg[k][i] = ALPHA * gg[k][i] + BETA * weightGrads.d[i] * weightGrads.d[i];
+                    gg[k][i] = ALPHA * gg[k][i] + BETA * gwi * gwi;
                     double etaThis = eta / Math.sqrt(gg[k][i] + EPS);
-                    double delta = -etaThis * weightGrads.d[i];
-                    weights.d[i] *= (1 - eta * lambda);
-                    weights.d[i] += delta;
-                    weightGrads.d[i] = 0;
+                    double delta = -etaThis * gwi;
 
+                    double wi = weightsArray.at(i) * (1 - eta * lambda);
+                    wi += delta;
+                    weightsArray.set(i, wi);
+                    weightGradsArray.set(i, 0);
                 }
+
 
             }
 
@@ -286,21 +292,18 @@ public class NeuralNetModel implements WeightModel
     {
 
         DenseVectorN dvn = (DenseVectorN)fv.getX();
-
-        double[] x = dvn.getX();
-        Tensor tensor = new Tensor(x, x.length);
+        ArrayDouble x = dvn.getX();
+        Tensor tensor = new Tensor(x, x.size());
         Tensor output = forward(tensor);
-        x = output.d;
-        int sz = output.size();
+
+        x = output.getArray();
         // Assuming a probability distribution, we are going to want to shift and scale
         if (scaleOutput)
         {
-            for (int i = 0; i < sz; ++i)
-            {
-                x[i] = (x[i] - 0.5) * 2.0;
-            }
+            x.add(-0.5);
+            x.scale(2.0);
         }
-        return x;
+        return x.v;
     }
 
     /**

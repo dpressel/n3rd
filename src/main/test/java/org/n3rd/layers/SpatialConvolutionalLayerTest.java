@@ -125,17 +125,16 @@ public class SpatialConvolutionalLayerTest
         SpatialConvolutionalLayer l = new SpatialConvolutionalLayer(1, 3, 2, 1, 6, 2);
         for (int i = 0; i < K.length; ++i)
         {
-            l.weights.d[i] = K[i];
+            l.weights.set(i, K[i]);
         }
         Tensor d = new Tensor(D, D.length);
 
         Tensor output = l.forward(d);
 
         assertEquals(output.size(), O2_NARROW.length);
-        double[] x = output.d;
         for (int i = 0; i < O2_NARROW.length; ++i)
         {
-            assertEquals(x[i], O2_NARROW[i]);
+            assertEquals(output.get(i), O2_NARROW[i]);
         }
 
     }
@@ -146,30 +145,18 @@ public class SpatialConvolutionalLayerTest
         SpatialConvolutionalLayer l = new SpatialConvolutionalLayer(1, 3, 2, 2, 6, 2);
         for (int i = 0; i < K2.length; ++i)
         {
-            l.weights.d[i] = K2[i];
-
+            l.weights.set(i, K2[i]);
         }
         Tensor d = new Tensor(D2, D2.length);
         Tensor output = l.forward(d);
 
         assertEquals(output.size(), O2_2TO1.length);
-        double[] x = output.d;
+
         for (int i = 0; i < O2_2TO1.length; ++i)
         {
-            assertEquals(x[i], O2_2TO1[i]);
+            assertEquals(output.get(i), O2_2TO1[i]);
         }
 
-    }
-
-    void print(Tensor x, int nK, int kL)
-    {
-        for (int i = 0; i < x.dims[2]; ++i)
-        {
-            for (int j = 0; j < x.dims[3]; ++j)
-            {
-                System.out.println(x.d[((nK * x.dims[1] + kL) * x.dims[2] + i) * x.dims[3] + j]);
-            }
-        }
     }
 
     @Test
@@ -179,9 +166,9 @@ public class SpatialConvolutionalLayerTest
 
         for (int i = 0; i < K2.length; ++i)
         {
-            l.weights.d[i] = K2[i];
-            l.weights.d[K2.length + i] = 2*K2[i];
-            l.weights.d[2*K2.length + i] = 3*K2[i];
+            l.weights.set(i, K2[i]);
+            l.weights.set(K2.length + i, 2*K2[i]);
+            l.weights.set(2*K2.length + i, 3*K2[i]);
 
         }
 
@@ -189,12 +176,12 @@ public class SpatialConvolutionalLayerTest
         Tensor output = l.forward(d);
 
         assertEquals(output.size(), O2_2TO1.length * 3);
-        double[] x = output.d;
+
         for (int i = 0; i < O2_2TO1.length; ++i)
         {
-            assertEquals(x[i], O2_2TO1[i]);
-            assertEquals(x[O2_2TO1.length + i], 2*O2_2TO1[i]);
-            assertEquals(x[2*O2_2TO1.length + i], 3*O2_2TO1[i]);
+            assertEquals(output.get(i), O2_2TO1[i]);
+            assertEquals(output.get(O2_2TO1.length + i), 2*O2_2TO1[i]);
+            assertEquals(output.get(2*O2_2TO1.length + i), 3*O2_2TO1[i]);
         }
 
     }
@@ -205,33 +192,29 @@ public class SpatialConvolutionalLayerTest
         SpatialConvolutionalLayer l = new SpatialConvolutionalLayer(3, 3, 2, 2, 6, 2);
         for (int i = 0; i < K2.length; ++i)
         {
-            l.weights.d[i] = K2[i];
-            l.weights.d[K2.length + i] = 2*K2[i];
-            l.weights.d[2*K2.length + i] = 3*K2[i];
+            l.weights.set(i, K2[i]);
+            l.weights.set(K2.length + i, 2*K2[i]);
+            l.weights.set(2*K2.length + i, 3*K2[i]);
 
         }
 
         Tensor d = new Tensor(D2, D2.length);
         Tensor output = l.forward(d);
         Tensor gradI = l.backward(output, 0);
-        double[] gIx = gradI.d;
+
         for (int i = 0; i < O2_GRAD_INPUT_2TO3.length; ++i)
         {
-            assertEquals(gIx[i], O2_GRAD_INPUT_2TO3[i]);
+            assertEquals(gradI.get(i), O2_GRAD_INPUT_2TO3[i]);
         }
 
         Tensor gradW = l.getParamGrads();
-        System.out.println(gradW.d);
 
         assertEquals(gradW.size(), O2_WEIGHT_GRAD_2TO3.length);
 
         for (int i = 0; i < O2_WEIGHT_GRAD_2TO3.length; ++i)
         {
-            assertEquals(gradW.d[i], O2_WEIGHT_GRAD_2TO3[i]);
+            assertEquals(gradW.get(i), O2_WEIGHT_GRAD_2TO3[i]);
         }
-
-
-
 
     }
 
@@ -241,23 +224,23 @@ public class SpatialConvolutionalLayerTest
         SpatialConvolutionalLayer l = new SpatialConvolutionalLayer(1, 3, 2, 2, 6, 2);
         for (int i = 0; i < K2.length; ++i)
         {
-            l.weights.d[i] = K2[i];
+            l.weights.set(i, K2[i]);
 
         }
         Tensor d = new Tensor(D2, D2.length);
         Tensor output = l.forward(d);
         Tensor gradI = l.backward(output, 0);
-        double[] gIx = gradI.d;
+
         for (int i = 0; i < O2_GRAD_INPUT_2TO1.length; ++i)
         {
-            assertEquals(gIx[i], O2_GRAD_INPUT_2TO1[i]);
+            assertEquals(gradI.get(i), O2_GRAD_INPUT_2TO1[i]);
         }
 
         Tensor gradW = l.getParamGrads();
         assertEquals(gradW.size(), O2_WEIGHT_GRAD.length);
         for (int i = 0; i < O2_WEIGHT_GRAD.length; ++i)
         {
-            assertEquals(gradW.d[i], O2_WEIGHT_GRAD[i]);
+            assertEquals(gradW.get(i), O2_WEIGHT_GRAD[i]);
         }
 
 
@@ -270,15 +253,15 @@ public class SpatialConvolutionalLayerTest
         SpatialConvolutionalLayer l = new SpatialConvolutionalLayer(1, 3, 2, 1, 6, 2);
         for (int i = 0; i < K.length; ++i)
         {
-            l.weights.d[i] = K[i];
+            l.weights.set(i, K[i]);
         }
         Tensor d = new Tensor(D, D.length);
         Tensor output = l.forward(d);
         Tensor gradI = l.backward(output, 0);
-        double[] gIx = gradI.d;
+
         for (int i = 0; i < O2_GRAD_INPUT.length; ++i)
         {
-            assertEquals(gIx[i], O2_GRAD_INPUT[i]);
+            assertEquals(gradI.get(i), O2_GRAD_INPUT[i]);
         }
 
 

@@ -39,8 +39,10 @@ public class TemporalConvolutionalLayer extends AbstractLayer
 
         for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
-            weights.d[i] = rand();
+            weights.set(i, rand());
         }
+        output = new Tensor(1);
+        grads = new Tensor(1);
 
     }
 
@@ -61,15 +63,21 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         // and the usual math applies
 
 
-        final int inputFeatureMapSz = weights.dims[1];
+        final int nK = weights.dims[0];
+        final int kL = weights.dims[1];
         final int embeddingSz = weights.dims[2];
-        final int numFrames = z.size() / embeddingSz / inputFeatureMapSz;
-
+        final int kW = weights.dims[3];
+        final int numFrames = z.size() / embeddingSz / kL;
+        final int oT = numFrames - kW + 1;
         try
         {
-            input = new Tensor(z.d, inputFeatureMapSz, embeddingSz, numFrames);
-            grads = new Tensor(inputFeatureMapSz, embeddingSz, numFrames);
-            output = FilterOps.corr1(input, weights, biases);
+
+            input = new Tensor(z.getArray(), kL, embeddingSz, numFrames);
+            grads.resize(kL, embeddingSz, numFrames);
+            //grads = new Tensor(kL, embeddingSz, numFrames);
+            output.resize(nK, embeddingSz, oT);
+            //output = new Tensor(nK, embeddingSz, oT);
+            FilterOps.corr1(input, weights, biases, output);
             return output;
         }
         catch (Exception ex)
@@ -88,13 +96,13 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         final int numFrames = input.dims[2];
         final int convOutputSz = numFrames - kW + 1;
         // The desired dims going backwards is going to be
-
         int stride = convOutputSz * embeddingSz;
         for (int l = 0; l < featureMapSz; ++l)
         {
+            //this.biasGrads[l] = 0;
             for (int i = 0; i < stride; ++i)
             {
-                this.biasGrads[l] += chainGrad.d[l * stride + i];
+                this.biasGrads[l] += chainGrad.at(l * stride + i);
             }
             this.biasGrads[l] /= embeddingSz;
         }
@@ -102,22 +110,12 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         int zpFrameSize = numFrames + kW - 1;
         int zp = zpFrameSize - convOutputSz;
 
-        Tensor zpChainGrad = Tensor.embed(chainGrad, 0, zp);
-        Tensor tWeights = Tensor.transposeWeight4D(weights);
-        Tensor gradUps = FilterOps.conv1(zpChainGrad, tWeights, null);
+        Tensor zpChainGrad = chainGrad.embed(0, zp);
+        Tensor tWeights = weights.transposeWeight4D();
 
-        for (int i = 0, sz = gradUps.size(); i < sz; ++i)
-        {
-            this.grads.d[i] += gradUps.d[i];
-        }
-
-        Tensor gradWUps = FilterOps.corr1Weights(input, chainGrad);
-
-        // Try not moving the gradient of weights
-        for (int i = 0, sz = weights.size(); i < sz; ++i)
-        {
-            gradsW.d[i] += gradWUps.d[i];
-        }
+        grads.constant(0.);
+        FilterOps.conv1(zpChainGrad, tWeights, null, grads);
+        FilterOps.corr1Weights(input, chainGrad, gradsW);
 
         //// GRADIENT CHECK
         ////gradCheck(chainGradTensor);
@@ -125,33 +123,38 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         return grads;
     }
 
-    void gradCheckX(Tensor outputLayerGradArray)
+    void gradCheckX(Tensor outputLayerGrad)
     {
 
         double sumX = 0.;
         for (int i = 0, sz = grads.size(); i < sz; ++i)
         {
-            sumX += grads.d[i];
+            sumX += grads.at(i);
         }
 
         double sumNumGrad = 0.;
         for (int i = 0, sz = input.size(); i < sz; ++i)
         {
-            double xd = input.d[i];
+            double xd =  input.at(i);
             double xdp = xd + 1e-4;
             double xdm = xd - 1e-4;
 
-            input.d[i] = xdp;
-            Tensor outputHigh = FilterOps.corr1(input, weights, biases);
+            input.set(i, xdp);
+            Tensor outputHigh = new Tensor(output.dims);
+            Tensor outputLow = new Tensor(output.dims);
 
-            input.d[i] = xdm;
-            Tensor outputLow = FilterOps.corr1(input, weights, biases);
+            FilterOps.corr1(input, weights, biases, outputHigh);
 
-            input.d[i] = xd;
+            input.set(i, xdm);
+            FilterOps.corr1(input, weights, biases, outputLow);
+
+            input.set(i, xd);
+
+
             for (int j = 0, zsz = outputHigh.size(); j < zsz; ++j)
             {
-                double dxx = (outputHigh.d[j] - outputLow.d[j]) / (2 * 1e-4);
-                sumNumGrad += outputLayerGradArray.d[j] * dxx;
+                double dxx = (outputHigh.at(j) - outputLow.at(j)) / (2 * 1e-4);
+                sumNumGrad += outputLayerGrad.at(j) * dxx;
             }
         }
         double absDelta = Math.abs(sumNumGrad - sumX);
@@ -164,14 +167,15 @@ public class TemporalConvolutionalLayer extends AbstractLayer
 
     // When we shift parameters, isolating each, we get the gradient WRT the parameters
     // In order to find the mathematical gradient, look at the
-    void gradCheck(Tensor chainGradTensor)
+    void gradCheck(Tensor chainGrad)
     {
 
         double sumNumGrad = 0.;
         double sumGrad = 0.0;
+
         for (int i = 0, sz = gradsW.size(); i < sz; ++i)
         {
-            sumGrad += this.gradsW.d[i];
+            sumGrad += gradsW.at(i);
         }
         // Each weight sees every x except xi < w.length
 
@@ -182,6 +186,7 @@ public class TemporalConvolutionalLayer extends AbstractLayer
         int kW = weights.dims[3];
 
         int z = 0;
+
         for (int k = 0; k < nK; ++k)
         {
             for (int l = 0; l < kL; ++l)
@@ -192,22 +197,27 @@ public class TemporalConvolutionalLayer extends AbstractLayer
                     for (int i = 0; i < kW; ++i)
                     {
 
-                        double wd = weights.d[z];
+                        double wd = weights.at(z);
                         double wdp = wd + 1e-4;
                         double wdm = wd - 1e-4;
                         // first add it
-                        weights.d[z] = wdp;
-                        Tensor outputHigh = FilterOps.corr1(input, weights, biases);
+                        weights.set(z, wdp);
+                        Tensor outputHigh = new Tensor(output.dims);
+                        Tensor outputLow = new Tensor(output.dims);
 
-                        weights.d[z] = wdm;
-                        Tensor outputLow = FilterOps.corr1(input, weights, biases);
+                        FilterOps.corr1(input, weights, biases, outputHigh);
 
-                        weights.d[z] = wd;
+                        weights.set(z, wdm);
+
+                        FilterOps.corr1(input, weights, biases, outputLow);
+
+                        weights.set(z, wd);
+
                         ++z;
 
                         for (int w = 0, zsz = outputHigh.size(); w < zsz; ++w)
                         {
-                            double dxx = chainGradTensor.d[w] * (outputHigh.d[w] - outputLow.d[w]) / (2 * 1e-4);
+                            double dxx = chainGrad.at(w) * (outputHigh.at(w) - outputLow.at(w)) / (2 * 1e-4);
                             sumNumGrad += dxx;
                         }
                     }

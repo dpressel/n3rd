@@ -2,6 +2,7 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
+import org.sgdtk.ArrayDouble;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -74,16 +75,17 @@ public class FullyConnectedLayer extends AbstractLayer
         output = new Tensor(outputLength);
         biases = new double[outputLength];
         biasGrads = new double[outputLength];
+
         for (int i = 0, ibase = 0; i < outputLength; ++i, ibase += this.inputLength)
         {
             for (int j = 0; j < this.inputLength; ++j)
             {
-                weights.d[ibase + j] = rand();
+                weights.set(ibase + j, rand());
             }
-            biases[i] = 0;//rand();
+            biases[i] = rand();
         }
         grads = new Tensor(this.inputLength);
-
+        //z = new Tensor(inputLength);
     }
 
     /**
@@ -94,27 +96,26 @@ public class FullyConnectedLayer extends AbstractLayer
     @Override
     public Tensor forward(Tensor x)
     {
-        this.z = new Tensor(x);
+        //x.copyTo(z);
+        z = x;
         return fX(z, weights);
     }
 
-    // This is the workhorse
     protected Tensor fX(Tensor x, Tensor w)
     {
 
+        final int zL = Math.min(inputLength, x.size());
+        ArrayDouble oA = output.getArray();
 
-
-        int zL = Math.min(inputLength, x.size());
-        //System.out.println("zL " + zL + ", " + outputLength + " x " + inputLength);
         for (int i = 0, ibase = 0; i < outputLength; ++i, ibase += inputLength)
         {
             double acc = 0.;
             for (int j = 0; j < zL; ++j)
             {
-                acc += w.d[ibase + j] * x.d[j];
+                acc += w.at(ibase + j) * x.at(j);
             }
 
-            output.d[i] = acc + biases[i];
+            oA.set(i, acc + biases[i]);
         }
         return output;
     }
@@ -128,11 +129,14 @@ public class FullyConnectedLayer extends AbstractLayer
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
-        int zLength = z.size();
-        int howLong = Math.min(inputLength, zLength);
+        final int zLength = z.size();
+        final int howLong = Math.min(inputLength, zLength);
 
-        grads.reset(0.);
+        grads.constant(0.);
+        //gradsW.constant(0.);
 
+        ArrayDouble gwA = gradsW.getArray();
+        ArrayDouble gA = grads.getArray();
         for (int i = 0, ibase = 0; i < outputLength; ++i, ibase += inputLength)
         {
             
@@ -141,15 +145,14 @@ public class FullyConnectedLayer extends AbstractLayer
             // Because of how we are doing our outputs, we know we do not have sparse layers
 
 
+            final double cgi = chainGrad.at(i);
             for (int j = 0; j < howLong; ++j)
             {
-
-                gradsW.d[ibase + j] += chainGrad.d[i] * z.d[j];
-                grads.d[j] += chainGrad.d[i] * weights.d[ibase + j];
-                
+                gwA.addi(ibase + j, cgi * z.at(j));
+                gA.addi(j, cgi * weights.at(ibase + j));
             }
             // push propagates through on a constant term
-            biasGrads[i] += chainGrad.d[i];
+            biasGrads[i] += cgi;
         }
 
         //// GRADIENT CHECKING.  We have x laying around, so we need to do the forward computation on both
@@ -160,33 +163,33 @@ public class FullyConnectedLayer extends AbstractLayer
     }
 
     // dx on a fully connected layer is simply the parameters by the parent gradient
-    void gradCheckX(double[] outputLayerGradArray)
+    void gradCheckX(Tensor outputLayerGradArray)
     {
-        double[] dxArray = grads.d;
+
         double sumX = 0.0;
 
-        for (int i = 0; i < dxArray.length; ++i)
+        for (int i = 0; i < grads.size(); ++i)
         {
-            sumX += dxArray[i];
+            sumX += grads.at(i);
         }
 
         double sumNumGrad = 0.;
         for (int i = 0; i < inputLength; ++i)
         {
-            double xd = z.d[i];
+            double xd = z.at(i);
             double xdp = xd + 1e-4;
             double xdm = xd - 1e-4;
             // first add it
-            z.d[i] = xdp;
-            double[] zop = fX(z, weights).d;
-            z.d[i] = xdm;
-            double[] zom = fX(z, weights).d;
-            z.d[i] = xd;
+            z.set(i, xdp);
+            Tensor zop = fX(z, weights);
+            z.set(i, xdm);
+            Tensor zom = fX(z, weights);
+            z.set(i,  xd);
 
-            for (int j = 0; j < zop.length; ++j)
+            for (int j = 0; j < zop.size(); ++j)
             {
-                double dxx = (zop[j] - zom[j]) / (2*1e-4);
-                dxx *= outputLayerGradArray[j];
+                double dxx = (zop.at(j) - zom.at(j)) / (2*1e-4);
+                dxx *= outputLayerGradArray.at(j);
                 sumNumGrad += dxx;
             }
         }
@@ -198,31 +201,32 @@ public class FullyConnectedLayer extends AbstractLayer
     }
 
     // When we shift parameters, isolating each, we get the gradient WRT the parameters
-    void gradCheck(double[] outputLayerGradArray)
+    void gradCheck(Tensor outputLayerGradArray)
     {
 
         double sumX = 0.0;
-        //for (int j = 0; j < zArray.length; ++j)
+
         for (int i = 0, sz = gradsW.size(); i < sz; ++i)
         {
-            sumX += gradsW.d[i];
+            sumX += gradsW.at(i);
         }
         double sumNumGrad = 0.;
+
         for (int i = 0, sz = weights.size(); i < sz; ++i)
         {
-            double wd = weights.d[i];
+            double wd = weights.at(i);
             double wdp = wd + 1e-4;
             double wdm = wd - 1e-4;
             // first add it
-            weights.d[i] = wdp;
+            weights.set(i, wdp);
 
             Tensor zop = fX(z, weights);
-            weights.d[i] = wdm;
+            weights.set(i, wdm);
             Tensor zom = fX(z, weights);
-            weights.d[i] = wd;
+            weights.set(i, wd);
             for (int j = 0, zsz = zop.size(); j < zsz; ++j)
             {
-                double dxx = outputLayerGradArray[j] * (zop.d[j] - zom.d[j])/ (2*1e-4);
+                double dxx = outputLayerGradArray.at(j) * (zop.at(j) - zom.at(j))/ (2*1e-4);
                 sumNumGrad += dxx;
             }
         }

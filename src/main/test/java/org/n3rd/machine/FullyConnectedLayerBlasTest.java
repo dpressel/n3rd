@@ -34,8 +34,8 @@ public class FullyConnectedLayerBlasTest
             {
                 int idx = i * N + j;
                 int cIdx = j * M + i;
-                nw.d[cIdx] = K[n];
-                w.d[idx] = K[n];
+                nw.set(cIdx, K[n]);
+                w.set(idx, K[n]);
                 n++;
             }
         }
@@ -54,8 +54,8 @@ public class FullyConnectedLayerBlasTest
 
         for (int i = 0; i < V_2.length; ++i)
         {
-            assertEquals(no.d[i], V_2[i]);
-            assertEquals(o.d[i], V_2[i]);
+            assertEquals(no.get(i), V_2[i]);
+            assertEquals(o.get(i), V_2[i]);
         }
     }
 
@@ -80,8 +80,8 @@ public class FullyConnectedLayerBlasTest
             {
                 int idx = i * N + j;
                 int cIdx = j * M + i;
-                nw.d[cIdx] = K[n];
-                w.d[idx] = K[n];
+                nw.set(cIdx, K[n]);
+                w.set(idx, K[n]);
                 n++;
             }
         }
@@ -102,8 +102,8 @@ public class FullyConnectedLayerBlasTest
 
         for (int i = 0; i < v.size(); ++i)
         {
-            System.out.print(v.d[i] + " ");
-            assertEquals(v.d[i], nv.d[i]);
+            System.out.print(v.get(i) + " ");
+            assertEquals(v.get(i), nv.get(i));
         }
         System.out.println();
 
@@ -117,8 +117,8 @@ public class FullyConnectedLayerBlasTest
         {
             for (int j = 0; j < N; ++j)
             {
-                assertEquals(ngw.d[j * M + i], gw.d[i * N + j], 1e-6);
-                System.out.print(gw.d[i * N + j] + " ");
+                assertEquals(ngw.get(j * M + i), gw.get(i * N + j), 1e-6);
+                System.out.print(gw.get(i * N + j) + " ");
             }
             System.out.println();
 
@@ -148,8 +148,8 @@ public class FullyConnectedLayerBlasTest
             {
                 int idx = i * M + j;
                 int cIdx = j * N + i;
-                nw.d[cIdx] = K[n];
-                w.d[idx] = K[n];
+                nw.set(cIdx, K[n]);
+                w.set(idx, K[n]);
                 n++;
             }
         }
@@ -170,8 +170,8 @@ public class FullyConnectedLayerBlasTest
 
         for (int i = 0; i < v.size(); ++i)
         {
-            System.out.println(v.d[i] + " ");
-            assertEquals(v.d[i], nv.d[i]);
+            System.out.println(v.get(i) + " ");
+            assertEquals(v.get(i), nv.get(i));
 
         }
         System.out.println();
@@ -185,8 +185,8 @@ public class FullyConnectedLayerBlasTest
         {
             for (int j = 0; j < M; ++j)
             {
-                assertEquals(ngw.d[j * N + i], gw.d[i * M + j], 1e-6);
-                System.out.print(gw.d[i * M + j] + " ");
+                assertEquals(ngw.get(j * N + i), gw.get(i * M + j), 1e-6);
+                System.out.print(gw.get(i * M + j) + " ");
             }
             System.out.println();
 

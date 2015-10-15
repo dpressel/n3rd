@@ -92,22 +92,22 @@ public class MaxPoolingLayerTest
         Tensor d = new Tensor(O2_2TO1.length * 3);
 
 
-        double[] x = d.d;
+
         for (int i = 0; i < O2_2TO1.length; ++i)
         {
-            x[i] = O2_2TO1[i];
-            x[O2_2TO1.length + i] = 2*O2_2TO1[i];
-            x[2*O2_2TO1.length + i] = 3*O2_2TO1[i];
+            d.set(i, O2_2TO1[i]);
+            d.set(O2_2TO1.length + i, 2*O2_2TO1[i]);
+            d.set(2*O2_2TO1.length + i, 3*O2_2TO1[i]);
         }
         Tensor output = l.forward(d);
         assertEquals(6, output.size());
 
-        x = output.d;
+
         for (int i = 1; i < O2_2TO1_MX_DS_21.length; ++i)
         {
-            assertEquals(x[i], O2_2TO1_MX_DS_21[i]);
-            assertEquals(x[O2_2TO1_MX_DS_21.length + i], 2*O2_2TO1_MX_DS_21[i]);
-            assertEquals(x[2+O2_2TO1_MX_DS_21.length +i], 3*O2_2TO1_MX_DS_21[i]);
+            assertEquals(output.get(i), O2_2TO1_MX_DS_21[i]);
+            assertEquals(output.get(O2_2TO1_MX_DS_21.length + i), 2*O2_2TO1_MX_DS_21[i]);
+            assertEquals(output.get(2+O2_2TO1_MX_DS_21.length +i), 3*O2_2TO1_MX_DS_21[i]);
         }
 
 
@@ -122,23 +122,20 @@ public class MaxPoolingLayerTest
 
         Tensor d = new Tensor(O2_2TO1.length * 3);
 
-
-        double[] x = d.d;
         for (int i = 0; i < O2_2TO1.length; ++i)
         {
-            x[i] = O2_2TO1[i];
-            x[O2_2TO1.length + i] = 2*O2_2TO1[i];
-            x[2*O2_2TO1.length + i] = 3*O2_2TO1[i];
+            d.set(i, O2_2TO1[i]);
+            d.set(O2_2TO1.length + i, 2*O2_2TO1[i]);
+            d.set(2*O2_2TO1.length + i, 3*O2_2TO1[i]);
         }
         Tensor output = l.forward(d);
         assertEquals(6, output.size());
 
-        x = output.d;
         for (int i = 1; i < O2_2TO1_MX_DS_31.length; ++i)
         {
-            assertEquals(x[i], O2_2TO1_MX_DS_31[i]);
-            assertEquals(x[O2_2TO1_MX_DS_31.length + i], 2*O2_2TO1_MX_DS_31[i]);
-            assertEquals(x[2+O2_2TO1_MX_DS_31.length +i], 3*O2_2TO1_MX_DS_31[i]);
+            assertEquals(output.get(i), O2_2TO1_MX_DS_31[i]);
+            assertEquals(output.get(O2_2TO1_MX_DS_31.length + i), 2*O2_2TO1_MX_DS_31[i]);
+            assertEquals(output.get(2+O2_2TO1_MX_DS_31.length + i), 3*O2_2TO1_MX_DS_31[i]);
         }
 
 
@@ -151,12 +148,12 @@ public class MaxPoolingLayerTest
         MaxPoolingLayer l = new MaxPoolingLayer(2,1,3,4,1);
         Tensor d = new Tensor(O2_2TO1.length * 3);
 
-        double[] x = d.d;
+
         for (int i = 0; i < O2_2TO1.length; ++i)
         {
-            x[i] = O2_2TO1[i];
-            x[O2_2TO1.length + i] = 2*O2_2TO1[i];
-            x[2*O2_2TO1.length + i] = 3*O2_2TO1[i];
+            d.set(i, O2_2TO1[i]);
+            d.set(O2_2TO1.length + i, 2*O2_2TO1[i]);
+            d.set(2*O2_2TO1.length + i, 3*O2_2TO1[i]);
         }
         Tensor output = l.forward(d);
         Tensor grads = l.backward(output, 0);
@@ -166,12 +163,12 @@ public class MaxPoolingLayerTest
         {
             if (i % 2 == 0)
             {
-                assertEquals(grads.d[i], 0.0);
+                assertEquals(grads.get(i), 0.0);
             }
             else
             {
-                System.out.println(x[i]);
-                assertEquals(grads.d[i], O2_2TO1_MX_DS32_21[n]);
+
+                assertEquals(grads.get(i), O2_2TO1_MX_DS32_21[n]);
                 ++n;
             }
         }
@@ -183,12 +180,12 @@ public class MaxPoolingLayerTest
         MaxPoolingLayer l = new MaxPoolingLayer(3,1,3,4,1);
         Tensor d = new Tensor(O2_2TO1.length * 3);
 
-        double[] x = d.d;
+
         for (int i = 0; i < O2_2TO1.length; ++i)
         {
-            x[i] = O2_2TO1[i];
-            x[O2_2TO1.length + i] = 2*O2_2TO1[i];
-            x[2*O2_2TO1.length + i] = 3*O2_2TO1[i];
+            d.set(i, O2_2TO1[i]);
+            d.set(O2_2TO1.length + i, 2*O2_2TO1[i]);
+            d.set(2*O2_2TO1.length + i, 3*O2_2TO1[i]);
         }
         Tensor output = l.forward(d);
         Tensor grads = l.backward(output, 0);
@@ -196,12 +193,8 @@ public class MaxPoolingLayerTest
         int n = 0;
         for (int i = 2, sz = grads.size(); i < sz; i += 4, n+=2)
         {
-            System.out.println(x[i]);
-            assertEquals(grads.d[i], O2_2TO1_MX_DS32_31[n]);
-
-            System.out.println(grads.d[i+1]);
-            assertEquals(grads.d[i+1], O2_2TO1_MX_DS32_31[n+1]);
-
+            assertEquals(grads.get(i), O2_2TO1_MX_DS32_31[n]);
+            assertEquals(grads.get(i + 1), O2_2TO1_MX_DS32_31[n+1]);
 
         }
     }

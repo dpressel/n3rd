@@ -1,6 +1,7 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
+import org.sgdtk.ArrayDouble;
 
 /**
  * Folding layer, inspired by Kalchbrenner & Blunsom's folding layer, but more general purpose
@@ -34,6 +35,8 @@ public class AverageFoldingLayer extends AbstractLayer
         this.embeddingSz = embedSz;
         this.featureMapSz = featureMapSz;
         this.k = k;
+        output = new Tensor(1);
+        grads = new Tensor(1);
     }
     @Override
     public Tensor forward(Tensor z)
@@ -41,54 +44,59 @@ public class AverageFoldingLayer extends AbstractLayer
         numFrames = z.size()/embeddingSz/featureMapSz;
         final int outEmbeddingSz = embeddingSz/k;
 
-        // Do a resize() here!
-        output = new Tensor(featureMapSz, outEmbeddingSz, numFrames);
-        output.reset(0.);
-
+        output.resize(featureMapSz, outEmbeddingSz, numFrames);
+        //output = new Tensor(featureMapSz, outEmbeddingSz, numFrames);
+        grads.resize(featureMapSz, embeddingSz, numFrames);
         double div = 1.0 / k;
-        for (int l = 0; l < featureMapSz; ++l)
+        ArrayDouble oA = output.getArray();
+
+
+        for (int l = 0, lbase = 0, libase = 0; l < featureMapSz; ++l, lbase += outEmbeddingSz, libase += embeddingSz)
         {
             for (int j = 0, p = 0; j < embeddingSz; j += k, ++p)
             {
+                int obase = (lbase + p) * numFrames;
+
                 for (int i = 0; i < numFrames; ++i)
                 {
-                    int oAddr = (l * outEmbeddingSz + p) * numFrames + i;
-
-
-                    output.d[oAddr] = 0.0;
+                    int oAddr = obase + i;
+                    oA.set(oAddr, 0.0);
                     for (int m = 0; m < k; ++m)
                     {
-                        int iAddr = (l * embeddingSz + j + m) * numFrames + i;
-                        output.d[oAddr] += z.d[iAddr];
+                        int iAddr = (libase + j + m) * numFrames + i;
+                        oA.addi(oAddr, z.at(iAddr));
                     }
-                    output.d[oAddr] *= div;
+                    oA.multi(oAddr, div);
                 }
             }
         }
         return output;
     }
 
-    // Since the output and input are the same for the max value, we can just apply the
-    // max-pool value from the output
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
 
-        grads = new Tensor(featureMapSz, embeddingSz, numFrames);
+        //grads = new Tensor(featureMapSz, embeddingSz, numFrames);
+        //
+        grads.constant(0.);
+        ArrayDouble gA = grads.getArray();
         double div = 1.0 / k;
         int outEmbeddingSz = embeddingSz/k;
-        for (int l = 0; l < featureMapSz; ++l)
+        for (int l = 0, lbase = 0, libase = 0; l < featureMapSz; ++l, lbase += outEmbeddingSz, libase += embeddingSz)
         {
-            for (int i = 0; i < numFrames; ++i)
+            for (int j = 0, p = 0; j < embeddingSz; j += k, ++p)
             {
-                for (int j = 0, p = 0; j < embeddingSz; j += k, ++p)
+                int obase = (lbase + p) * numFrames;
+                for (int i = 0; i < numFrames; ++i)
                 {
-                    int oAddr = (l * outEmbeddingSz + p) * numFrames + i;
-                    double value = chainGrad.d[oAddr] * div;
+
+                    int oAddr = obase + i;
+                    double value = chainGrad.at(oAddr) * div;
                     for (int m = 0; m < k; ++m)
                     {
-                        int iAddr = (l * embeddingSz + j + m) * numFrames + i;
-                        grads.d[iAddr] = value;
+                        int iAddr = (libase + j + m) * numFrames + i;
+                        gA.set(iAddr, value);
                     }
                 }
             }

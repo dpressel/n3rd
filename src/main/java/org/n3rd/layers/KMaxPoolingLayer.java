@@ -1,6 +1,7 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
+import org.sgdtk.ArrayDouble;
 import org.sgdtk.Offset;
 
 import java.util.ArrayList;
@@ -9,11 +10,11 @@ import java.util.List;
 
 /**
  * K-max pooling, a generalization of max-pooling over time, where we take the top K values
- *
+ * <p>
  * K-max pooling layer implements temporal max pooling, selecting up to K max features.  This is the approach used
  * in Kalchbrenner & Blunsom for their CNN sentence classification.  When K is 1, it simply becomes max-pooling over
  * time.
- *
+ * <p>
  * The current implementation just uses builtin Java data structures, and isnt likely to be particularly optimal
  * and can likely be simplified quite a bit.
  *
@@ -39,9 +40,10 @@ public class KMaxPoolingLayer extends AbstractLayer
 
     /**
      * Constructor for training
-     * @param k The number of max values to use in each embedding
+     *
+     * @param k            The number of max values to use in each embedding
      * @param featureMapSz This is the number of feature maps
-     * @param embedSz This is the embedding space, e.g, for some word2vec input, this might be something like 300
+     * @param embedSz      This is the embedding space, e.g, for some word2vec input, this might be something like 300
      */
     public KMaxPoolingLayer(int k, int featureMapSz, int embedSz)
     {
@@ -50,6 +52,7 @@ public class KMaxPoolingLayer extends AbstractLayer
         this.featureMapSz = featureMapSz;
         output = new Tensor(featureMapSz, embeddingSz, k);
         origin = new int[output.size()];
+        grads = new Tensor(1);
     }
 
     public int getK()
@@ -91,6 +94,7 @@ public class KMaxPoolingLayer extends AbstractLayer
             return Double.compare(o2.value, o1.value);
         }
     }
+
     public static final class MinIndexComparator implements Comparator<Offset>
     {
         @Override
@@ -106,31 +110,32 @@ public class KMaxPoolingLayer extends AbstractLayer
     {
 
 
-        numFrames = z.size()/embeddingSz/featureMapSz;
-
-
-        grads = new Tensor(featureMapSz, embeddingSz, numFrames);
-
+        numFrames = z.size() / embeddingSz / featureMapSz;
+        grads.resize(featureMapSz, embeddingSz, numFrames);
+        //grads = new Tensor(featureMapSz, embeddingSz, numFrames);
         int sz = output.size();
 
-        for (int i = 0; i <sz; ++i)
+        ArrayDouble oA = output.getArray();
+        final ArrayDouble zA = z.getArray();
+        for (int i = 0; i < sz; ++i)
         {
-            output.d[i] = 0;
+            oA.set(i, 0);
             origin[i] = -100;
         }
 
-        for (int l = 0; l < featureMapSz; ++l)
+        for (int l = 0, lbase = 0; l < featureMapSz; ++l, lbase += embeddingSz)
         {
             for (int j = 0; j < embeddingSz; ++j)
             {
-
                 List<Offset> offsets = new ArrayList<Offset>(numFrames);
-                ///PriorityQueue<Offset> offsets = new PriorityQueue<Offset>(new MaxValueComparator());
+
+                final int ibase = (lbase + j) * numFrames;
+                final int obase = (lbase + j) * k;
 
                 for (int i = 0; i < numFrames; ++i)
                 {
-                    int inAddr = (l * embeddingSz + j) * numFrames + i;
-                    offsets.add(new Offset(inAddr, z.d[inAddr]));
+                    int inAddr = ibase + i;
+                    offsets.add(new Offset(inAddr, zA.at(inAddr)));
 
                 }
                 offsets.sort(new MaxValueComparator());
@@ -139,9 +144,9 @@ public class KMaxPoolingLayer extends AbstractLayer
                 sz = offsetList.size();
                 for (int i = 0; i < sz; ++i)
                 {
-                    int outAddr = (l * embeddingSz + j) * k + i;
+                    int outAddr = obase + i;
                     origin[outAddr] = offsetList.get(i).index;
-                    output.d[outAddr] = offsetList.get(i).value;
+                    oA.set(outAddr, offsetList.get(i).value);
                 }
             }
 
@@ -155,21 +160,24 @@ public class KMaxPoolingLayer extends AbstractLayer
     public Tensor backward(Tensor chainGrad, double y)
     {
 
+        grads.constant(0.);
+        ArrayDouble gA = grads.getArray();
 
-        for (int l = 0; l < featureMapSz; ++l)
+        for (int l = 0, lbase = 0; l < featureMapSz; ++l, lbase += embeddingSz)
         {
-            for (int i = 0; i < k; ++i)
-            {
-                for (int j = 0; j < embeddingSz; ++j)
-                {
 
-                    int outAddr = (l * embeddingSz + j) * k + i;
+            for (int j = 0; j < embeddingSz; ++j)
+            {
+                int obase = (lbase + j) * k;
+                for (int i = 0; i < k; ++i)
+                {
+                    int outAddr = obase + i;
                     int inAddr = origin[outAddr];
                     if (inAddr == -100)
                     {
                         continue;
                     }
-                    grads.d[inAddr] = chainGrad.d[outAddr];
+                    gA.set(inAddr, chainGrad.at(outAddr));
                 }
             }
         }

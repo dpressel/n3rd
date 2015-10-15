@@ -1,6 +1,7 @@
 package org.n3rd.layers;
 
 import org.n3rd.Tensor;
+import org.sgdtk.ArrayDouble;
 
 /**
  * Standard Tanh implementation
@@ -12,7 +13,8 @@ public class TanhLayer extends AbstractLayer
 
     public TanhLayer()
     {
-
+        output = new Tensor(1);
+        grads = new Tensor(1);
     }
 
     @Override
@@ -20,12 +22,14 @@ public class TanhLayer extends AbstractLayer
     {
 
         int sz = z.size();
-        output = new Tensor(sz);
-        grads = new Tensor(sz);
+        output.resize(sz);
+        grads.resize(sz);
+
+        ArrayDouble oA = output.getArray();
         for (int i = 0; i < sz; ++i)
         {
-            double zi = z.d[i];
-            output.d[i] = Math.tanh(zi);
+            double zi = z.at(i);
+            oA.set(i, Math.tanh(zi));
         }
         return output;
     }
@@ -34,11 +38,13 @@ public class TanhLayer extends AbstractLayer
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
+        ArrayDouble gA = grads.getArray();
         int sz = chainGrad.size();
 
         for (int i = 0; i < sz; ++i)
         {
-            grads.d[i] = chainGrad.d[i] * (1 - output.d[i]*output.d[i]);
+            double oi = output.at(i);
+            gA.set(i, chainGrad.at(i) * (1. - oi*oi));
         }
         return grads;
     }
