@@ -70,7 +70,7 @@ public class FFTOps
             xwide[j] = x[x0 + i];
         }
 
-        if (!corr)
+        if (corr)
         {
             for (int i = 0, j = 0; i < yLength; ++i, j += 2)
             {
@@ -92,6 +92,7 @@ public class FFTOps
 
         for (int i = 0; i < doubleWide; i+= 2)
         {
+            ywide[i + 1] = -ywide[i + 1];
             double xwr = xwide[i];
             double xwi = xwide[i+1];
             xwide[i] = xwr*ywide[i] - xwi*ywide[i+1];
@@ -100,16 +101,10 @@ public class FFTOps
 
         ifft.transform(xwide);
 
-        for (int i = 0, j = 0; j < doubleWide; ++i, j += 2)
+        for (int i = 0, j = 0; i < narrow; ++i, j += 2)
         {
             double re = xwide[j]/wide;
-            double im = xwide[j+1]/wide;
-            xwide[i] = Math.sqrt(re*re + im*im);
-        }
-
-        for (int i = yLength - 1, j = 0; j < narrow; ++i, ++j)
-        {
-            z[j] = xwide[i];
+            z[i] = re;
         }
 
     }

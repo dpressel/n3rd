@@ -48,6 +48,7 @@ public class FFT1DTest
 
 
     double[] O1 = { 22, 34, 46, 58 };
+    double[] O1NEG = {-35,  -58,  -79, -100, -115};
 
     double[] fftfilt(double[] x, double[] y, boolean corr)
     {
@@ -67,7 +68,7 @@ public class FFT1DTest
             xwide[j] = x[i];
         }
 
-        if (!corr)
+        if (corr)
         {
             for (int i = 0, j = 0; i < y.length; ++i, j += 2)
             {
@@ -86,6 +87,7 @@ public class FFT1DTest
 
         for (int i = 0; i < xwide.length; i += 2)
         {
+            ywide[i + 1] *= -1;
             double xwr = xwide[i];
             double xwi = xwide[i + 1];
             xwide[i] = xwr * ywide[i] - xwi * ywide[i + 1];
@@ -94,17 +96,12 @@ public class FFT1DTest
 
         ifft.transform(xwide);
 
-        for (int i = 0, j = 0; j < xwide.length; ++i, j += 2)
+        for (int i = 0, j = 0; i < narrow; ++i, j += 2)
         {
             double re = xwide[j] / wide;
-            double im = xwide[j + 1] / wide;
-            xwide[i] = Math.sqrt(re * re + im * im);
+            z[i] = re;
         }
 
-        for (int i = y.length - 1, j = 0; j < narrow; ++i, ++j)
-        {
-            z[j] = xwide[i];
-        }
         return z;
     }
 
@@ -123,6 +120,25 @@ public class FFT1DTest
         {
 
             assertEquals(z[i], O1[i]);
+        }
+
+    }
+
+    @Test
+    public void testFFT1Neg() throws Exception
+    {
+
+        //Tensor d = new Tensor(D, 1, 6, 2);
+        double[] x = { -1, 2, -3, 4, 5, 6, 7, 8, 9 };
+        double[] y = { -1, -2, -3, -4, -5 };
+        //Tensor k = new Tensor(K, 3, 2);
+
+        double[] z = fftfilt(x, y, true);
+
+        for (int i = 0; i < z.length; ++i)
+        {
+
+            assertEquals(z[i], O1NEG[i], 1e-6);
         }
 
     }
