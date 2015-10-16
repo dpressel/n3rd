@@ -8,26 +8,9 @@ import org.sgdtk.ArrayDouble;
 import static junit.framework.TestCase.assertEquals;
 
 
-/*
-
-# Do conv/xcorr using FFTs padded to next power of 2
-fftfiltnp2 <- function(x, y, corr=TRUE) {
-
-  wide = 2^ceiling(log2(max(length(x) + length(y) - 1)))
-  narrow = length(x) - length(y) + 1
-  zpxn = wide - length(x)
-  zpyn = wide - length(y)
-  zpx = c(x, rep.int(0, zpxn))
-  zpy = c(( if (corr) rev(y) else y), rep.int(0, zpyn))
-  cmplx = fft(fft(zpx) * fft(zpy), inverse=TRUE)
-  sig = abs(cmplx/wide)
-  sig = sig[length(y):wide]
-  sig[1:narrow]
-}
- */
 public class FFT1DTest
 {
-    // embeddings are
+
     double[] D =
             {
                     1, 2,
