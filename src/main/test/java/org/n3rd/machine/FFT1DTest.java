@@ -3,6 +3,7 @@ package org.n3rd.machine;
 import com.sun.media.sound.FFT;
 import org.junit.Test;
 import org.n3rd.ops.FFTOps;
+import org.sgdtk.ArrayDouble;
 
 import static junit.framework.TestCase.assertEquals;
 
@@ -50,10 +51,26 @@ public class FFT1DTest
     double[] O1 = { 22, 34, 46, 58 };
     double[] O1NEG = {-35,  -58,  -79, -100, -115};
 
+    double[] xcorr(double[] x, double[] y)
+    {
+        int narrow = x.length - y.length + 1;
+        double[] z = new double[narrow];
+        for (int i = 0; i < narrow; ++i)
+        {
+
+            for (int j = 0; j < y.length; ++j)
+            {
+                z[i] += x[i + j] * y[j];
+            }
+        }
+        return z;
+
+    }
+
     double[] fftfilt(double[] x, double[] y, boolean corr)
     {
 
-        final int wide = (int) Math.pow(2.0, Math.ceil(Math.log(x.length + y.length - 1) / Math.log(2)));
+        final int wide = ArrayDouble.nextPowerOf2(x.length + y.length - 1);
         final int narrow = x.length - y.length + 1;
         double[] z = new double[narrow];
 
@@ -124,6 +141,46 @@ public class FFT1DTest
 
     }
 
+    @Test
+    public void testLongSignal() throws Exception
+    {
+        double[] x = new double[2140];
+        for (int i = 0; i < x.length; ++i)
+        {
+            x[i] = i;
+        }
+        double[] y = new double[258];
+        for (int i = 0; i < y.length; ++i)
+        {
+            y[i] = i;
+        }
+
+        double[] z1 = null;
+        double[] z2 = null;
+        double t0 = System.currentTimeMillis();
+        for (int i = 0; i < 2000; ++i)
+        {
+            z1 = xcorr(x, y);
+        }
+        double xe = System.currentTimeMillis() - t0;
+        System.out.println("Xcorr speed: " + xe  + "ms");
+        t0 = System.currentTimeMillis();
+        for (int i = 0; i < 2000; ++i)
+        {
+            z2 = fftfilt(x, y, true);
+        }
+        double xf = System.currentTimeMillis() - t0;
+
+        System.out.println("FFT speed:   " + xf  + "ms");
+
+        assertEquals(z1.length, z2.length);
+        for (int i = 0; i < z1.length; ++i)
+        {
+            assertEquals(z1[i], z2[i], 1e-4);
+        }
+
+
+    }
     @Test
     public void testFFT1Neg() throws Exception
     {
