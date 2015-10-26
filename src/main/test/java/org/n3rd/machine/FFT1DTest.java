@@ -87,7 +87,7 @@ public class FFT1DTest
 
         for (int i = 0; i < xwide.length; i += 2)
         {
-            ywide[i + 1] *= -1;
+            ywide[i + 1] = -ywide[i + 1];
             double xwr = xwide[i];
             double xwi = xwide[i + 1];
             xwide[i] = xwr * ywide[i] - xwi * ywide[i + 1];

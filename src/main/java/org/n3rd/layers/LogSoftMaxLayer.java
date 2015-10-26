@@ -5,7 +5,7 @@ import org.sgdtk.ArrayDouble;
 import org.sgdtk.CollectionsManip;
 
 /**
- * LogSoftMaxLayer returns outputs in log soft max space
+ * LogSoftMaxLayerFactory returns outputs in log soft max space
  *
  * @author dpressel
  */
