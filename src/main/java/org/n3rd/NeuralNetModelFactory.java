@@ -37,6 +37,8 @@ public class NeuralNetModelFactory implements ModelFactory
         layerFactories.put(SpatialConvolutionalLayer.class.getSimpleName(), new SpatialConvolutionalLayerFactory());
         layerFactories.put(MaxPoolingLayer.class.getSimpleName(), new MaxPoolingLayerFactory());
         layerFactories.put(FullyConnectedLayer.class.getSimpleName(), new FullyConnectedLayerFactory());
+        layerFactories.put(DropoutLayer.class.getSimpleName(), new DropoutLayerFactory());
+        layerFactories.put(MaxOverTimePoolingLayer.class.getSimpleName(), new MaxOverTimePoolingLayerFactory());
     }
     List<Layer> layers;
 /*

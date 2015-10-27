@@ -272,7 +272,6 @@ public class NeuralNetModel implements WeightModel
         for (int i = 0; i < layers.length; ++i)
         {
             Layer layer = layers[i];
-
             z = layer.forward(z);
 
         }

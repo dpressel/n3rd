@@ -91,37 +91,47 @@ public class TemporalConvolutionalLayer extends AbstractLayer
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
-        final int featureMapSz = weights.dims[0];
-        final int embeddingSz = weights.dims[2];
-        final int kW = weights.dims[3];
-        final int numFrames = input.dims[2];
-        final int convOutputSz = numFrames - kW + 1;
-        // The desired dims going backwards is going to be
-        int stride = convOutputSz * embeddingSz;
-        for (int l = 0; l < featureMapSz; ++l)
+        try
         {
-            //this.biasGrads[l] = 0;
-            for (int i = 0; i < stride; ++i)
+
+            final int featureMapSz = weights.dims[0];
+            final int embeddingSz = weights.dims[2];
+            final int kW = weights.dims[3];
+            final int numFrames = input.dims[2];
+            final int convOutputSz = numFrames - kW + 1;
+
+            chainGrad.reshape(featureMapSz, embeddingSz, convOutputSz);
+            // The desired dims going backwards is going to be
+            int stride = convOutputSz * embeddingSz;
+            for (int l = 0; l < featureMapSz; ++l)
             {
-                this.biasGrads[l] += chainGrad.at(l * stride + i);
+                //this.biasGrads[l] = 0;
+                for (int i = 0; i < stride; ++i)
+                {
+                    this.biasGrads[l] += chainGrad.at(l * stride + i);
+                }
+                this.biasGrads[l] /= embeddingSz;
             }
-            this.biasGrads[l] /= embeddingSz;
+
+            int zpFrameSize = numFrames + kW - 1;
+            int zp = zpFrameSize - convOutputSz;
+
+            Tensor zpChainGrad = chainGrad.embed(0, zp);
+            Tensor tWeights = weights.transposeWeight4D();
+
+            grads.constant(0.);
+            FilterOps.conv1(zpChainGrad, tWeights, null, grads);
+            FilterOps.corr1Weights(input, chainGrad, gradsW);
+
+            //// GRADIENT CHECK
+            ////gradCheck(chainGradTensor);
+            ////gradCheckX(chainGradTensor);
+            return grads;
         }
-
-        int zpFrameSize = numFrames + kW - 1;
-        int zp = zpFrameSize - convOutputSz;
-
-        Tensor zpChainGrad = chainGrad.embed(0, zp);
-        Tensor tWeights = weights.transposeWeight4D();
-
-        grads.constant(0.);
-        FilterOps.conv1(zpChainGrad, tWeights, null, grads);
-        FilterOps.corr1Weights(input, chainGrad, gradsW);
-
-        //// GRADIENT CHECK
-        ////gradCheck(chainGradTensor);
-        ////gradCheckX(chainGradTensor);
-        return grads;
+        catch (Exception ex)
+        {
+            throw new RuntimeException(ex);
+        }
     }
 
     void gradCheckX(Tensor outputLayerGrad)
