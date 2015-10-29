@@ -196,6 +196,7 @@ public class Tensor
         array.multn(x);
     }
 
+
     public Tensor transposeWeight4D()
     {
 

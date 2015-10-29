@@ -91,37 +91,46 @@ public class TemporalConvolutionalLayerFFT extends AbstractLayer
     public Tensor backward(Tensor chainGrad, double y)
     {
 
-        final int featureMapSz = weights.dims[0];
-        final int embeddingSz = weights.dims[2];
-        final int kW = weights.dims[3];
-        final int numFrames = input.dims[2];
-        final int convOutputSz = numFrames - kW + 1;
-
-        //grads.constant(0.);
-        int stride = convOutputSz * embeddingSz;
-        for (int l = 0; l < featureMapSz; ++l)
+        try
         {
-            for (int i = 0; i < stride; ++i)
+            final int featureMapSz = weights.dims[0];
+            final int embeddingSz = weights.dims[2];
+            final int kW = weights.dims[3];
+            final int numFrames = input.dims[2];
+            final int convOutputSz = numFrames - kW + 1;
+
+            // This is done so that the embed doesnt fail
+            chainGrad.reshape(featureMapSz, embeddingSz, convOutputSz);
+            //grads.constant(0.);
+            int stride = convOutputSz * embeddingSz;
+            for (int l = 0; l < featureMapSz; ++l)
             {
-                this.biasGrads[l] += chainGrad.at(l * stride + i);
+                for (int i = 0; i < stride; ++i)
+                {
+                    this.biasGrads[l] += chainGrad.at(l * stride + i);
+                }
+                this.biasGrads[l] /= embeddingSz;
             }
-            this.biasGrads[l] /= embeddingSz;
+
+            int zpFrameSize = numFrames + kW - 1;
+            int zp = zpFrameSize - convOutputSz;
+
+            Tensor zpChainGrad = chainGrad.embed(0, zp);
+            Tensor tWeights = weights.transposeWeight4D();
+
+            grads.constant(0.);
+            gradsW.constant(0.);
+            FilterOps.fftfilt(fft, zpChainGrad, tWeights, null, false, grads);
+            FilterOps.corr1Weights(input, chainGrad, gradsW);
+
+            // No gradient check, see standard impl. for a working version
+            // This class is compared against the standard impl. for unit tests
+            return grads;
         }
-
-        int zpFrameSize = numFrames + kW - 1;
-        int zp = zpFrameSize - convOutputSz;
-
-        Tensor zpChainGrad = chainGrad.embed(0, zp);
-        Tensor tWeights = weights.transposeWeight4D();
-
-        grads.constant(0.);
-        gradsW.constant(0.);
-        FilterOps.fftfilt(fft, zpChainGrad, tWeights, null, false, grads);
-        FilterOps.corr1Weights(input, chainGrad, gradsW);
-
-        // No gradient check, see standard impl. for a working version
-        // This class is compared against the standard impl. for unit tests
-        return grads;
+        catch (Exception ex)
+        {
+            throw new RuntimeException(ex);
+        }
     }
 
     /**

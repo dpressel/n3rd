@@ -53,16 +53,6 @@ public class MaxOverTimePoolingLayer extends AbstractLayer
         this.featureMapSz = featureMapSz;
     }
 
-    public static final class MaxValueComparator implements Comparator<Offset>
-    {
-        @Override
-        public int compare(Offset o1, Offset o2)
-        {
-            //return o1.index;
-            return Double.compare(o2.value, o1.value);
-        }
-    }
-
     @Override
     public Tensor forward(Tensor z)
     {
