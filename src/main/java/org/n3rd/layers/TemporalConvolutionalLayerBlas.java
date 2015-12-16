@@ -92,58 +92,6 @@ public class TemporalConvolutionalLayerBlas implements Layer
         return d;
     }
 
-    // Straight transpose on the output
-    private void reorderOutput(ArrayDouble unwrapped)
-    {
-        //Tensor output = new Tensor(oT, nK);
-        // We have committed to unwrapping our output matrix to the form
-        int oT = numFrames - kW + 1;
-
-
-        // This looks like
-        // output[k][i][j] ==
-        // (k * oT + i) * eSz + j
-        // Our current data is laid out in fortran row major form as follows
-        //
-        // unwrapped[i][k][j] ==
-        // (k * eSz + j) * oT + i
-
-        // You could also do nIdx++ I think
-        for (int k = 0; k < nK; ++k)
-        {
-            for (int i = 0; i < oT; ++i)
-            {
-
-                int nIdx = k * oT + i;
-                int cIdx = i * nK + k;
-                double tmp = unwrapped.get(nIdx);
-                unwrapped.set(nIdx, unwrapped.get(cIdx));
-                unwrapped.set(cIdx, tmp);
-            }
-        }
-
-    }
-
-    // When going backwards we need a simple transpose, but here we make a copy so as not
-    // to destroy the other chain value
-    private Tensor unwrapGradFromNextLayer(Tensor chainGrad, Tensor unwrapped)
-    {
-        final int oT = numFrames - kW + 1;
-
-        // You could also do nIdx++ I think
-        for (int k = 0; k < nK; ++k)
-        {
-            for (int i = 0; i < oT; ++i)
-            {
-                int nIdx = k * oT + i;
-                int cIdx = i * nK + k;
-
-                unwrapped.set(nIdx, chainGrad.get(cIdx));
-            }
-        }
-        return unwrapped;
-    }
-
     private void unwrapInput(ArrayDouble x)
     {
 
@@ -216,12 +164,18 @@ public class TemporalConvolutionalLayerBlas implements Layer
 
         unwrapInput(input);
 
-        output.constant(0.);
+
+        for (int l = 0; l < nK; ++l)
+        {
+            for (int i = 0; i < oT; ++i)
+            {
+                output.set(l * oT + i, biases[l]);
+            }
+        }
+
         NativeBlas.dgemm('N', 'N', unwrappedInput.dims[0], weights.dims[1], unwrappedInput.dims[1], 1.0,
                 unwrappedInput.getArray().v, 0, unwrappedInput.dims[0],
-                weights.getArray().v, 0, weights.dims[0], 0, output.getArray().v, 0, oT);
-
-        reorderOutput(output.getArray());
+                weights.getArray().v, 0, weights.dims[0], 1., output.getArray().v, 0, oT);
 
         return output;
 
@@ -237,34 +191,33 @@ public class TemporalConvolutionalLayerBlas implements Layer
             final int oT = numFrames - kW + 1;
             int[] outputDims = new int[]{nK, 1, oT};
             chainGrad.reshape(outputDims);
-            Tensor unwrappedChainGrad = new Tensor(oT, nK);
-            unwrapGradFromNextLayer(chainGrad, unwrappedChainGrad);
+
             Tensor unwrappedGradInput = new Tensor(oT, kW * kL);
-            int m = unwrappedChainGrad.dims[0];
-            int k = unwrappedChainGrad.dims[1];
+            int m = oT;
+            int k = nK;
             int n = weights.dims[0];
 
-            NativeBlas.dgemm('N', 'T', m, n, k, 1.0, unwrappedChainGrad.getArray().v, 0, m,
+            NativeBlas.dgemm('N', 'T', m, n, k, 1.0, chainGrad.getArray().v, 0, m,
                     weights.getArray().v, 0, n, 0, unwrappedGradInput.getArray().v, 0, m);
 
             m = unwrappedInput.dims[1];
             k = unwrappedInput.dims[0];
-            n = unwrappedChainGrad.dims[1];
+            n = nK;
 
             NativeBlas.dgemm('T', 'N', m, n, k, 1.0, unwrappedInput.getArray().v, 0, k,
-                    unwrappedChainGrad.getArray().v, 0, k, 0, gradsW.getArray().v, 0, m);
+                    chainGrad.getArray().v, 0, k, 0, gradsW.getArray().v, 0, m);
 
             // We need to update gradsW, which are (kL * embeddingSize) * kW x (nK * embeddingSize);
-        /*
-        int stride = convOutputSz * embedSz;
-        for (int l = 0; l < nK; ++l)
-        {
-            for (int i = 0; i < stride; ++i)
+
+
+            for (int l = 0; l < nK; ++l)
             {
-                this.biasGrads[l] += chainGradX[l * stride + i];
+                for (int i = 0; i < oT; ++i)
+                {
+                    this.biasGrads[l] += chainGrad.get(l * oT + i);
+                }
+
             }
-            this.biasGrads[l] /= embedSz;
-        }*/
 
 
             wrapGrad(unwrappedGradInput);

@@ -8,72 +8,76 @@ import static junit.framework.TestCase.assertEquals;
 public class TemporalConvolutionalLayerBlasTest
 {
 
-
     double[] DNOE =
-            {
-                    1, 3, 5, 7, 9, 11
-            };
-
+        {
+                1,3,5,7,9,11
+        };
 
     double[] KNOE = {
-            1, 2, 3
-
-    };
-
+        1,2,3
+};
 
     double[] OFM1IFM1NOE = {22, 34, 46, 58};
 
     double[] IFM2KNOE = {
-            1, 2, 3,
-            7, 8, 9
-    };
+        1, 2, 3,
+        7, 8, 9
+};
 
     double[] OFM1IFM2NOE = {
-            122., 182., 242., 302.
-    };
+        122., 182., 242., 302.
+};
 
+// This is what the unrolled matrix should look like (though its really in col-major form for BLAS)
+    double[] UNROLLED = {
+        1,    3,    5,    2,    4,    6,
+        3,    5,    7,    4,    6,    8,
+        5,    7,    9,    6,    8,   10,
+        7,    9,   11,    8,   10,   12
+
+};
 
     double[] IFM2DNOE = {
-            1, 3, 5, 7, 9, 11,
-            2, 4, 6, 8, 10, 12};
+        1, 3, 5, 7, 9, 11,
+        2, 4, 6, 8, 10, 12};
 
 
     double[] IFM2OFM3KNOE = {
 
-            -2, -1, 0,
+        -2, -1, 0, 1, 2, 3,
 
-            1, 2, 3,
+        4, 5, 6, 7, 8, 9,
 
-            4, 5, 6,
+        10, 11, 12, -13, -14, -15
 
-            7, 8, 9,
 
-            10, 11, 12,
-
-            -13, -14, -15
-    };
+};
 
     double[] OFM3IFM2DNOE = {
-            23., 29., 35., 41.,
-            149., 227., 305., 383.,
-            -69., -87., -105., -123.
-    };
+        23., 29., 35., 41.,
+        149., 227., 305., 383.,
+        -69., -87., -105., -123.
+};
 
     double SQ_M_1000_1CHAN = 425.789216;
     double SQ_M_W_1000_1CHAN = 2383.197216;
 
     double[] OFM3IFM2G_1000_1CHAN = {
-            -0.14, -0.057, 0.31499999999, 0.873, 1.090999999, 0.8219999, 1.963, 4.953, 9.072, 11.7359999, 9.293, 5.415
+        -0.14, -0.057, 0.31499999999, 0.873, 1.090999999, 0.8219999, 1.963, 4.953, 9.072, 11.7359999, 9.293, 5.415
 
-    };
+};
+
 
     @Test
     public void testForwardWordVecAsInChannels() throws Exception
     {
         TemporalConvolutionalLayerBlas l = new TemporalConvolutionalLayerBlas(1, 1, 3);
+
+        Tensor weights = l.getParams();
+        // Because there are no output feature maps, memory is same for col and row major
         for (int i = 0; i < KNOE.length; ++i)
         {
-            l.weights.set(i, KNOE[i]);
+            weights.set(i, KNOE[i]);
         }
         Tensor d = new Tensor(DNOE, 1, 1, 6);
         Tensor output = l.forward(d);
@@ -95,10 +99,10 @@ public class TemporalConvolutionalLayerBlasTest
 
         Tensor weights = l.getParams();
 
+        // Because there are no output feature maps, memory is same for col and row major
         for (int i = 0; i < IFM2KNOE.length; ++i)
         {
-                weights.set(i, IFM2KNOE[i]);
-
+            weights.set(i, IFM2KNOE[i]);
         }
 
         Tensor d = new Tensor(IFM2DNOE, 2, 1, 6);
@@ -116,12 +120,18 @@ public class TemporalConvolutionalLayerBlasTest
     {
 
         TemporalConvolutionalLayerBlas l = new TemporalConvolutionalLayerBlas(3, 2, 3);
+        Tensor w = l.getParams();
+        assertEquals(w.size(), IFM2OFM3KNOE.length);
 
-        Tensor weights = l.getParams();
-        assertEquals(weights.size(), IFM2OFM3KNOE.length);
-        for (int i = 0; i < IFM2OFM3KNOE.length; ++i)
+        int nrows = 6;
+        int ncols = 3;
+        int n = 0;
+        for (int j = 0; j < ncols; ++j)
         {
-            weights.set(i, IFM2OFM3KNOE[i]);
+            for (int i = 0; i < nrows; ++i)
+            {
+                w.set(j * nrows + i, IFM2OFM3KNOE[n++]);
+            }
         }
 
         Tensor d = new Tensor(IFM2DNOE, 2, 1, 6);
@@ -135,16 +145,23 @@ public class TemporalConvolutionalLayerBlasTest
 
     }
 
-
     @Test
     public void testBackward2to3WordVecAsInChannels() throws Exception
     {
         TemporalConvolutionalLayerBlas l = new TemporalConvolutionalLayerBlas(3, 2, 3);
+        Tensor w = l.getParams();
+        assertEquals(w.size(), IFM2OFM3KNOE.length);
 
-        Tensor weights = l.getParams();
-        for (int i = 0; i < IFM2OFM3KNOE.length; ++i)
+        int nrows = 6;
+        int ncols = 3;
+
+        int n = 0;
+        for (int j = 0; j < ncols; ++j)
         {
-            weights.set(i, IFM2OFM3KNOE[i]);
+            for (int i = 0; i < nrows; ++i)
+            {
+                w.set(j * nrows + i, IFM2OFM3KNOE[n++]);
+            }
         }
 
         Tensor d = new Tensor(IFM2DNOE, 2, 1, 6);
@@ -155,6 +172,7 @@ public class TemporalConvolutionalLayerBlasTest
         Tensor grads = l.backward(output, 0);
 
         Tensor gw = l.getParamGrads();
+
         // Are gradients right?
         double acc = 0.;
         // Are weights right after gradients applied?
@@ -163,7 +181,7 @@ public class TemporalConvolutionalLayerBlasTest
         {
             acc += gw.get(i) * gw.get(i);
             //weights.addi(i, gw.get(i));
-            double wU = weights.get(i) + gw.get(i);
+            double wU = w.get(i) + gw.get(i);
             accW += wU * wU;
             gw.set(i, 0);
         }
