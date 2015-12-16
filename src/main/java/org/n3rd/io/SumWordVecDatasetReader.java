@@ -1,7 +1,5 @@
 package org.n3rd.io;
 
-import org.n3rd.io.DatasetReader;
-import org.n3rd.io.Word2VecModel;
 import org.sgdtk.DenseVectorN;
 import org.sgdtk.FeatureVector;
 import org.sgdtk.HashFeatureEncoder;
