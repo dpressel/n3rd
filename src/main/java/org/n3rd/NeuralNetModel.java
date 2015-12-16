@@ -26,11 +26,7 @@ public class NeuralNetModel implements WeightModel
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     protected Layer[] layers;
     protected boolean scaleOutput = true;
-    protected double[][] gg;
 
-    // We could allow these as tuning parameters to control the weighting on Adagrad, but for now, just do 1, 1
-    private static final double ALPHA = 1.;
-    private static final double BETA = 1.;
     private static final double EPS = 1e-8;
 
     /**
@@ -72,6 +68,70 @@ public class NeuralNetModel implements WeightModel
         return 0;
     }
 
+    void adagradUpdate(Layer layer, double eta, double lambda)
+    {
+        Tensor gg = layer.getWeightAccum();
+        Tensor weights = layer.getParams();
+        int wSz = weights.size();
+
+        Tensor weightGrads = layer.getParamGrads();
+
+        for (int i = 0; i < wSz; ++i)
+        {
+            if (weightGrads.get(i) == 0.0)
+            {
+                continue;
+            }
+
+
+            double gwi = weightGrads.get(i);
+            gg.addi(i, gwi * gwi);
+            double ggi = gg.get(i);
+
+            double etaThis = eta / Math.sqrt(ggi + EPS);
+            double delta = -etaThis * gwi;
+
+            double wi = weights.get(i) * (1 - eta * lambda);
+            wi += delta;
+            weights.set(i, wi);
+            weightGrads.set(i, 0);
+
+        }
+    }
+
+    void updateBiasWeights(Layer layer, double eta)
+    {
+        double[] biasGrads = layer.getBiasGrads();
+        double[] biasParams = layer.getBiasParams();
+        for (int i = 0; i < biasParams.length; ++i)
+        {
+            // Dont bother to regularize
+            double delta = -(biasGrads[i] * eta);// * 0.01; // last number is total fudge
+            biasParams[i] += delta;
+            biasGrads[i] = 0;
+        }
+    }
+    void updateLayerWeights(Layer layer, double eta, double lambda)
+    {
+        // Now we need to update each layer's weights
+        Tensor weights = layer.getParams();
+
+        // Sometimes weights can be NULL in layers without parameters, dont touch them!
+        if (weights != null)
+        {
+            adagradUpdate(layer, eta, lambda);
+        }
+
+        double[] biasParams = layer.getBiasParams();
+
+        // Same story for biasParams, can be NULL
+        if (biasParams != null && biasParams.length > 0)
+        {
+
+            updateBiasWeights(layer, eta);
+        }
+    }
+
     /**
      * Function to update the weights for a model.  I realize in retrospect that this may have been better encapsulated
      * in the actual Trainer, but this wouldve caused a coupling between the Trainer and the Model which we have
@@ -89,11 +149,6 @@ public class NeuralNetModel implements WeightModel
     @Override
     public void updateWeights(VectorN vector, double eta, double lambda, double dLoss, double y)
     {
-        // Allocate Adagrad vector
-        if (gg == null)
-        {
-            gg = new double[layers.length][];
-        }
 
         Tensor chainGrad = new Tensor(new ArrayDouble(1, dLoss), 1);
 
@@ -105,60 +160,7 @@ public class NeuralNetModel implements WeightModel
             // This updates the entire chain back, which handles our deltas, so now we have the backward delta
             // during this step, the weight params, if they exist should have also been computed
             chainGrad = layer.backward(chainGrad, y);
-
-            // Now we need to update each layer's weights
-            Tensor weights = layer.getParams();
-
-            // Sometimes weights can be NULL in layers without parameters, dont touch them!
-            if (weights != null)
-            {
-
-                ArrayDouble weightsArray = weights.getArray();
-
-                // Initialize Adagrad for layer k
-                if (gg[k] == null)
-                {
-                    gg[k] = new double[weights.size()];
-                }
-                ArrayDouble weightGradsArray = layer.getParamGrads().getArray();
-
-                int sz = weights.size();
-
-                for (int i = 0; i < sz; ++i)
-                {
-                    double gwi = weightGradsArray.at(i);
-                    if (gwi == 0.0)
-                        continue;
-
-                    // Adagrad update
-                    gg[k][i] = ALPHA * gg[k][i] + BETA * gwi * gwi;
-                    double etaThis = eta / Math.sqrt(gg[k][i] + EPS);
-                    double delta = -etaThis * gwi;
-
-                    double wi = weightsArray.at(i) * (1 - eta * lambda);
-                    wi += delta;
-                    weightsArray.set(i, wi);
-                    weightGradsArray.set(i, 0);
-                }
-
-
-            }
-
-            double[] biasParams = layer.getBiasParams();
-
-            // Same story for biasParams, can be NULL
-            if (biasParams != null && biasParams.length > 0)
-            {
-
-                double[] biasGrads = layer.getBiasGrads();
-                for (int i = 0; i < biasParams.length; ++i)
-                {
-                    // Dont bother to regularize
-                    double delta = -(biasGrads[i] * eta);// * 0.01; // last number is total fudge
-                    biasParams[i] += delta;
-                    biasGrads[i] = 0;
-                }
-            }
+            updateLayerWeights(layer, eta, lambda);
         }
     }
 

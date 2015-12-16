@@ -36,10 +36,17 @@ public class TemporalConvolutionalLayerBlas implements Layer
 
     Tensor gradsW;
     Tensor grads;
+    Tensor weightAccum;
     double[] biases;
     double[] biasGrads;
 
     int nK;
+
+    @Override
+    public Tensor getWeightAccum()
+    {
+        return weightAccum;
+    }
 
     @Override
     public Tensor getOutput()
@@ -72,6 +79,7 @@ public class TemporalConvolutionalLayerBlas implements Layer
         grads = new Tensor(1);
         unwrappedInput = new Tensor(1);
         weights = new Tensor(kL * kW, nK);
+        weightAccum = new Tensor(kL * kW, nK);
         gradsW = new Tensor(kL * kW, nK);
         biases = new double[nK];
         biasGrads = new double[nK];

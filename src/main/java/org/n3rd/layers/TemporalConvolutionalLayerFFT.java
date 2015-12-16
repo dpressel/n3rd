@@ -39,6 +39,7 @@ public class TemporalConvolutionalLayerFFT extends AbstractLayer
     {
 
         weights = new Tensor(nK, kL, embeddingSize, kW);
+        weightAccum = new Tensor(nK, kL, embeddingSize, kW);
         gradsW = new Tensor(nK, kL, embeddingSize, kW);
         biases = new double[nK];
         biasGrads = new double[nK];

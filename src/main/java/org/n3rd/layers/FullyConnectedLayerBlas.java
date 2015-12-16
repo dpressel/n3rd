@@ -74,6 +74,7 @@ public class FullyConnectedLayerBlas extends AbstractLayer
         this.outputLength = outputLength;
         this.inputLength = inputLength;
         weights = new Tensor(outputLength, this.inputLength);
+        weightAccum = new Tensor(outputLength, this.inputLength);
         gradsW = new Tensor(outputLength, this.inputLength);
         biases = new double[outputLength];
         biasGrads = new double[outputLength];

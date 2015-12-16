@@ -15,6 +15,7 @@ public abstract class AbstractLayer implements Layer
     protected Tensor grads;
     protected Tensor gradsW;
     protected Tensor output;
+    protected Tensor weightAccum;
 
     @Override
     public Tensor getParamGrads()
@@ -46,4 +47,6 @@ public abstract class AbstractLayer implements Layer
         return grads;
     }
 
+    @Override
+    public Tensor getWeightAccum() { return weightAccum; }
 }

@@ -72,6 +72,7 @@ public class FullyConnectedLayer extends AbstractLayer
         this.outputLength = outputLength;
         this.inputLength = inputLength;
         weights = new Tensor(outputLength, this.inputLength);
+        weightAccum = new Tensor(outputLength, this.inputLength);
         gradsW = new Tensor(outputLength, this.inputLength);
         output = new Tensor(outputLength);
         biases = new double[outputLength];
