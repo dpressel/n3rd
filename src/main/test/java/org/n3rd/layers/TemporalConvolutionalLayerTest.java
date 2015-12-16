@@ -169,16 +169,13 @@ public class TemporalConvolutionalLayerTest
     public void testForward2to1WordVecAsInChannels() throws Exception
     {
 
-        TemporalConvolutionalLayer l = new TemporalConvolutionalLayer(1, 2, 3, 1);
+        TemporalConvolutionalLayer l = new TemporalConvolutionalLayer(1, 2, 3);
 
         Tensor weights = l.getParams();
-        int n = 0;
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < IFM2KNOE.length; ++i)
         {
-            for (int j = 0; j < 3; ++j)
-            {
-                weights.set(j * 2 + i, IFM2KNOE[n++]);
-            }
+            weights.set(i, IFM2KNOE[i]);
+
         }
 
         Tensor d = new Tensor(IFM2DNOE, 2, 1, 6);

@@ -31,6 +31,10 @@ public class TemporalConvolutionalLayerFFT extends AbstractLayer
 
     }
 
+    public TemporalConvolutionalLayerFFT(int nK, int kL, int kW)
+    {
+        this(nK, kL, kW, 1);
+    }
     public TemporalConvolutionalLayerFFT(int nK, int kL, int kW, int embeddingSize)
     {
 

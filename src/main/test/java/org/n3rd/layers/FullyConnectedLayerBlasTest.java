@@ -1,8 +1,9 @@
-package org.n3rd.machine;
+package org.n3rd.layers;
 
 import org.junit.Test;
 import org.n3rd.Tensor;
 import org.n3rd.layers.FullyConnectedLayer;
+import org.n3rd.layers.FullyConnectedLayerBlas;
 
 import static junit.framework.TestCase.assertEquals;
 

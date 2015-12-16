@@ -29,6 +29,11 @@ public class TemporalConvolutionalLayer extends AbstractLayer
 
     }
 
+    public TemporalConvolutionalLayer(int nK, int kL, int kW)
+    {
+        this(nK, kL, kW, 1);
+    }
+
     public TemporalConvolutionalLayer(int nK, int kL, int kW, int embeddingSize)
     {
 

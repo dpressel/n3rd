@@ -1,4 +1,4 @@
-package org.n3rd.machine;
+package org.n3rd.layers;
 
 import com.sun.media.sound.FFT;
 import org.junit.Test;

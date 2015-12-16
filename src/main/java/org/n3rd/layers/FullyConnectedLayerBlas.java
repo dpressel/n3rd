@@ -1,5 +1,5 @@
 
-package org.n3rd.machine;
+package org.n3rd.layers;
 
 import org.jblas.NativeBlas;
 import org.n3rd.Tensor;
