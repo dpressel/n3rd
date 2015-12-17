@@ -102,7 +102,7 @@ if (params.model != null)
 ```
 
 A lot of tooling for deep learning doesnt provide a ton of flexibility for 1D convolutional nets.  That space is constantly evolving, but I wanted to
-support several different styles of CNNs that might be suitable for sentence processing, including Collobert/Weston-style nets and Kalchbrenner/Blunsom-style nets.  Additionally, n3rd currently supports several types of 1D convolution including standard form, as a single matrix multiply in unrolled form using BLAS, and in an FFT form.   
+support several different styles of CNNs that might be suitable for sentence processing, including Collobert/Weston-style nets and Kalchbrenner/Blunsom-style nets.  Additionally, n3rd currently supports several types of 1D convolution including standard form, as a single matrix multiply in unrolled form using BLAS (see [High Perf. CNN for Document Processing - Chellapilla, Puri, Simard](http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=BB0ABD1378F88436F00A9ABE61F36DBC?doi=10.1.1.137.482&rep=rep1&type=pdf) ), and in an FFT form.   
 
 Here is a simple example of a Kalchbrenner-style Convolutional Net for binary sentence classification, e.g., for positive/negative sentiment analysis.  It assumes that the input are zero-padded sentences (making a wide convolution) of word vectors (300 here), preserving embeddings through the convolution, and then employing K-Average Folding to collapse the embeddings and K-Max pooling.
 
