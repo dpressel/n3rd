@@ -102,7 +102,7 @@ if (params.model != null)
 ```
 
 A lot of tooling for deep learning doesnt provide a ton of flexibility for 1D convolutional nets.  That space is constantly evolving, but I wanted to
-support several different styles of CNNs that might be suitable for sentence processing.
+support several different styles of CNNs that might be suitable for sentence processing, including Collobert/Weston-style nets and Kalchbrenner/Blunsom-style nets.  Additionally, n3rd currently supports several types of 1D convolution including standard form, as a single matrix multiply in unrolled form using BLAS, and in an FFT form.   
 
 Here is a simple example of a Kalchbrenner-style Convolutional Net for binary sentence classification, e.g., for positive/negative sentiment analysis.  It assumes that the input are zero-padded sentences (making a wide convolution) of word vectors (300 here), preserving embeddings through the convolution, and then employing K-Average Folding to collapse the embeddings and K-Max pooling.
 
@@ -194,3 +194,4 @@ for (int i = 0; i < params.epochs; ++i)
 }
 ```
 The underlying sgdtk library has good support for overlapped IO and processing, influenced by [Vowpal Wabbit](https://github.com/JohnLangford/vowpal_wabbit), which makes it easy to process large amounts of data that would not fit into memory.  This is the recommended usage, unlike the above toy examples.  Note also that, unlike the sgdtk base, where we use a OvA MultiClassWeightModel for multi-class decisions, in n3rd, we are using a LogSoftMax with ClassNLLLoss instead to accomplish this without requiring that extra overhead.
+
