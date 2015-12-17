@@ -70,7 +70,7 @@ public class MaxPoolingLayer extends AbstractLayer
                     int inAddr = (l * iH + i) * iW + j;
 
                     final double zi = z.at(inAddr);
-                    
+
                     if (oA.at(outAddr) < zi)
                     {
                         oA.set(outAddr, zi);
