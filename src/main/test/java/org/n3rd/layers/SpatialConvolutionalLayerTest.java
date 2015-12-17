@@ -127,7 +127,7 @@ public class SpatialConvolutionalLayerTest
         {
             l.weights.set(i, K[i]);
         }
-        Tensor d = new Tensor(D, D.length);
+        Tensor d = new Tensor(D, 1,6,2);
 
         Tensor output = l.forward(d);
 
@@ -147,7 +147,7 @@ public class SpatialConvolutionalLayerTest
         {
             l.weights.set(i, K2[i]);
         }
-        Tensor d = new Tensor(D2, D2.length);
+        Tensor d = new Tensor(D2, 2,6,2);
         Tensor output = l.forward(d);
 
         assertEquals(output.size(), O2_2TO1.length);
@@ -172,7 +172,7 @@ public class SpatialConvolutionalLayerTest
 
         }
 
-        Tensor d = new Tensor(D2, D2.length);
+        Tensor d = new Tensor(D2, 2,6,2);
         Tensor output = l.forward(d);
 
         assertEquals(output.size(), O2_2TO1.length * 3);
@@ -198,7 +198,7 @@ public class SpatialConvolutionalLayerTest
 
         }
 
-        Tensor d = new Tensor(D2, D2.length);
+        Tensor d = new Tensor(D2, 2,6,2);
         Tensor output = l.forward(d);
         Tensor gradI = l.backward(output, 0);
 
@@ -227,7 +227,7 @@ public class SpatialConvolutionalLayerTest
             l.weights.set(i, K2[i]);
 
         }
-        Tensor d = new Tensor(D2, D2.length);
+        Tensor d = new Tensor(D2, 2,6,2);
         Tensor output = l.forward(d);
         Tensor gradI = l.backward(output, 0);
 
@@ -255,7 +255,7 @@ public class SpatialConvolutionalLayerTest
         {
             l.weights.set(i, K[i]);
         }
-        Tensor d = new Tensor(D, D.length);
+        Tensor d = new Tensor(D, 1,6,2);
         Tensor output = l.forward(d);
         Tensor gradI = l.backward(output, 0);
 

@@ -49,7 +49,7 @@ public class MaxPoolingLayer extends AbstractLayer
 
         for (int i = 0; i < origin.length; ++i)
         {
-            oA.set(i, 0);
+            oA.set(i, -100);
             origin[i] = 0;
         }
         final int kL = inputDims[0];
@@ -70,6 +70,7 @@ public class MaxPoolingLayer extends AbstractLayer
                     int inAddr = (l * iH + i) * iW + j;
 
                     final double zi = z.at(inAddr);
+                    
                     if (oA.at(outAddr) < zi)
                     {
                         oA.set(outAddr, zi);

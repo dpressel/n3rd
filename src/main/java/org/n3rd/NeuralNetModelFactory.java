@@ -75,6 +75,7 @@ public class NeuralNetModelFactory implements ModelFactory
     }
     public NeuralNetModelFactory()
     {
+        this.layers = new ArrayList<Layer>();
     }
 
     public NeuralNetModelFactory(Layer[] layers)

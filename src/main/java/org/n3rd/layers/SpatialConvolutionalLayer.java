@@ -36,8 +36,6 @@ public class SpatialConvolutionalLayer extends AbstractLayer
         }
     }
 
-    int[] inputDims;
-
     public SpatialConvolutionalLayer()
     {
 
@@ -49,7 +47,11 @@ public class SpatialConvolutionalLayer extends AbstractLayer
         final int iH = inputDims[1];
         final int iW = inputDims[2];
 
+        // For now, let this just be a pointer to input
+        input = new Tensor(inputDims);
+
         weights = new Tensor(nK, iL, kH, kW);
+        weightAccum = new Tensor(nK, iL, kH, kW);
         gradsW = new Tensor(nK, iL, kH, kW);
         biases = new double[nK];
         biasGrads = new double[nK];
@@ -68,8 +70,8 @@ public class SpatialConvolutionalLayer extends AbstractLayer
 
     public double rand()
     {
-        //double stdv = 1. / Math.sqrt(input.dims[1] * input.dims[2]);
-        double stdv = 1. / Math.sqrt(grads.dims[1] * weights.dims[2] * weights.dims[3]);
+        double stdv = 1. / Math.sqrt(grads.dims[1] * grads.dims[2]);
+        //double stdv = 1. / Math.sqrt(grads.dims[1] * weights.dims[2] * weights.dims[3]);
         double stdv2 = stdv * 2;
         return Math.random() * stdv2 - stdv;
     }
@@ -77,56 +79,75 @@ public class SpatialConvolutionalLayer extends AbstractLayer
     @Override
     public Tensor forward(Tensor z)
     {
-        input = new Tensor(z.getArray(), grads.dims);
-        //z.copyTo(input);
-        FilterOps.corr2(input, weights, biases, output);
-        return output;
+        //input = z;
+        try
+        {
+            z.copyTo(input);
+            input.reshape(grads.dims);
+            FilterOps.corr2(input, weights, biases, output);
+            return output;
+        }
+        catch (Exception ex)
+        {
+            throw new RuntimeException(ex);
+        }
     }
 
     // For every filter, do a convolution
     @Override
     public Tensor backward(Tensor chainGrad, double y)
     {
-        //final int iL = input.dims[0];
-        final int iH = input.dims[1];
-        final int iW = input.dims[2];
-
-        final int oH = output.dims[1];
-        final int oW = output.dims[2];
-        //final int kL = weights.dims[1];
-        final int kH = weights.dims[2];
-        final int kW = weights.dims[3];
-
-        final int zpH = iH + kH - 1;
-        final int zpW = iW + kW - 1;
-
-        Tensor zpChainGradCube = chainGrad.embed(zpH - oH, zpW - oW);
-
-        int nK = weights.dims[0];
-
-        Tensor tWeights = weights.transposeWeight4D();
-
-        // This is actually what is failing.  Why?  Probably a bug in transpose weight 4D?
-        FilterOps.conv2(zpChainGradCube, tWeights, null, grads);
-
-        // This is correct, we know that the gradient of the weights is checking out
-        FilterOps.corr2Weights(input, chainGrad, gradsW);
-
-        for (int l = 0; l < nK; ++l)
+        try
         {
-            for (int i = 0, sz = chainGrad.size(); i < sz; ++i)
+            //final int iL = input.dims[0];
+            final int iH = input.dims[1];
+            final int iW = input.dims[2];
+
+            final int oH = output.dims[1];
+            final int oW = output.dims[2];
+            //final int kL = weights.dims[1];
+            final int kH = weights.dims[2];
+            final int kW = weights.dims[3];
+
+            final int zpH = iH + kH - 1;
+            final int zpW = iW + kW - 1;
+
+
+            int nK = weights.dims[0];
+
+            chainGrad.reshape(nK, oH, oW);
+            Tensor zpChainGradCube = chainGrad.embed(zpH - oH, zpW - oW);
+
+            Tensor tWeights = weights.transposeWeight4D();
+
+            // This should NOT be required
+            grads.constant(0.);
+            // This is actually what is failing.  Why?  Probably a bug in transpose weight 4D?
+            FilterOps.conv2(zpChainGradCube, tWeights, null, grads);
+
+            // This is correct, we know that the gradient of the weights is checking out
+            FilterOps.corr2Weights(input, chainGrad, gradsW);
+/*
+            for (int l = 0; l < nK; ++l)
             {
-                this.biasGrads[l] += chainGrad.at(i);
+                for (int i = 0, sz = chainGrad.size(); i < sz; ++i)
+                {
+                    this.biasGrads[l] += chainGrad.at(i);
+                }
             }
+*/
+            //// GRADIENT CHECK
+            ///gradCheck(chainGrad.getArray());
+            ///gradCheckX(chainGrad.getArray());
+
+            return grads;
+
         }
-
-        //// GRADIENT CHECK
-        ////gradCheck(chainGradTensor);
-        ////gradCheckX(chainGradTensor);
-
-        return grads;
+        catch (Exception ex)
+        {
+            throw new RuntimeException(ex);
+        }
     }
-
 
     void gradCheckX(ArrayDouble outputLayerGradArray)
     {

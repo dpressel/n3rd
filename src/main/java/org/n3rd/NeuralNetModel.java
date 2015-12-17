@@ -91,6 +91,7 @@ public class NeuralNetModel implements WeightModel
             double etaThis = eta / Math.sqrt(ggi + EPS);
             double delta = -etaThis * gwi;
 
+            //double delta = -eta * gwi;
             double wi = weights.get(i) * (1 - eta * lambda);
             wi += delta;
             weights.set(i, wi);
@@ -273,10 +274,13 @@ public class NeuralNetModel implements WeightModel
         Tensor z = x;
         for (int i = 0; i < layers.length; ++i)
         {
+
             Layer layer = layers[i];
+
             z = layer.forward(z);
 
         }
+
         return z;
     }
 
@@ -297,14 +301,22 @@ public class NeuralNetModel implements WeightModel
         Tensor tensor = new Tensor(x, x.size());
         Tensor output = forward(tensor);
 
-        x = output.getArray();
+        int sz = output.size();
+        double[] scores = new double[sz];
+
+
+        System.arraycopy(output.getArray().v, 0, scores, 0, sz);
+
         // Assuming a probability distribution, we are going to want to shift and scale
         if (scaleOutput)
         {
-            x.add(-0.5);
-            x.scale(2.0);
+            for (int i = 0; i < sz; ++i)
+            {
+                scores[i] = 2 * (scores[i] - 0.5);
+            }
+
         }
-        return x.v;
+        return scores;
     }
 
     /**
