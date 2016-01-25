@@ -7,7 +7,7 @@ I spent a lot of time with Leon Bottou's SGD work and sample code, and found it 
 
 What I ended up is very simple, and does reuse a lot of the basic architecture, in the form of [sgdtk](https://github.com/dpressel/sgdtk/blob/master/README.md), keeping the actual code very minimal. The code also draws from various other sources of inspiration for its own contributions, particularly Torch.  Due to how the SGD framework is structured (primarily for linear classification problems), we are left handling backprop in the model, outside of the actual Learner, a necessary by-product (I think) of preserving the original structure.  While sgdtk is flexible in its approach to learning, the NNs are trained with Adagrad.
 
-For the time being, this code is implemented in pure CPU Java, though I am working on a GPU backend.  However, I have reimplemented most of this code in nearly identical C++, with a CUDA backend under the name [n3rd-cpp](https://github.com/dpressel/n3rd-cpp).  The C++ is currently MUCH faster than the Java (CPU and GPU), though both are still a WIP.
+For the time being, this code is implemented in pure CPU Java, though I am working on a GPU backend.  However, I have reimplemented most of this code in nearly identical C++, with a CUDA backend under the name [n3rd-cpp](https://github.com/dpressel/n3rd-cpp).  The C++, in several cases, is much faster than the Java (CPU and GPU), though this varies depending on the operation, and both are still works in progress.  In general, for best performance in convolution, you'll want to use the blas-backed implementations in either case.
 
 ## Some samples
 
@@ -21,13 +21,13 @@ static Learner createTrainer(Params params)
     NeuralNetModelFactory factory = new NeuralNetModelFactory();
     // You can also just inline the layers as a Layer array
     // see examples below.
-    factory.addLayer(new SpatialConvolutionalLayer(6, 5, 5, new int[]{1,32,32}));
+    factory.addLayer(new SpatialConvolutionalLayerBlas(6, 5, 5, new int[]{1,32,32}));
     factory.addLayer(new MaxPoolingLayer(2, 2, 6, 28, 28));
     factory.addLayer(new TanhLayer());
-    factory.addLayer(new SpatialConvolutionalLayer(16, 5, 5, new int[]{6,14,14}));
+    factory.addLayer(new SpatialConvolutionalLayerBlas(16, 5, 5, new int[]{6,14,14}));
     factory.addLayer(new MaxPoolingLayer(2, 2, 16, 10, 10));
     factory.addLayer(new TanhLayer());
-    factory.addLayer(new SpatialConvolutionalLayer(128, 5, 5, new int[]{16,5,5}));
+    factory.addLayer(new SpatialConvolutionalLayerBlas(128, 5, 5, new int[]{16,5,5}));
     factory.addLayer(new TanhLayer());
     factory.addLayer(new FullyConnectedLayer(84, 128));
     factory.addLayer(new TanhLayer());
