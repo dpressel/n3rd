@@ -18,6 +18,8 @@ public class Layers
             "getParamGrads",
             "getBiasGrads",
             "getClass",
+            "getOutput",
+            "getWeightAccum"
     };
     static {
         FILTER_METHODS = new HashSet<String>(Arrays.asList(FILTER_METHODS_LIST));
