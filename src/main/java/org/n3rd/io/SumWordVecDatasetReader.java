@@ -1,9 +1,6 @@
 package org.n3rd.io;
 
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.FeatureVector;
-import org.sgdtk.HashFeatureEncoder;
-import org.sgdtk.ArrayDouble;
+import org.sgdtk.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -26,23 +23,30 @@ public class SumWordVecDatasetReader implements DatasetReader
 {
 
     Word2VecModel word2vecModel;
-    private int embeddingSize;
+    private long embeddingSize;
     private int lineNumber = 0;
 
 
     HashFeatureEncoder hashFeatureEncoder = new HashFeatureEncoder(24);
 
+    FeatureNameEncoder labelEncoder;
+
     @Override
     public int getLargestVectorSeen()
     {
-        return embeddingSize;
+        return (int) embeddingSize;
     }
 
 
-    public SumWordVecDatasetReader(String embeddings, int embeddingSize) throws IOException
+    public SumWordVecDatasetReader(String embeddings) throws IOException
+    {
+        this(embeddings, null);
+    }
+    public SumWordVecDatasetReader(String embeddings, FeatureNameEncoder labelEncoder) throws IOException
     {
         word2vecModel = Word2VecModel.loadWord2VecModel(embeddings);
-        this.embeddingSize = embeddingSize;
+        this.embeddingSize = word2vecModel.getSize();
+        this.labelEncoder = labelEncoder == null ? new LazyFeatureDictionaryEncoder(): labelEncoder;
     }
 
     BufferedReader reader;
@@ -119,9 +123,23 @@ public class SumWordVecDatasetReader implements DatasetReader
         final StringTokenizer tokenizer = new StringTokenizer(line, " \t");
 
         String strLabel = tokenizer.nextToken();
-        final int label = Integer.valueOf(strLabel);
+        Integer label;
+        try
+        {
+            label = Integer.valueOf(strLabel);
+        }
+        catch (NumberFormatException numEx)
+        {
+            label = labelEncoder.indexOf(strLabel);
+            if (label == null)
+            {
+                return next();
+            }
+            // This is due to the zero offset assigned by the lazy encoder, we want 1-based
+            label++;
+        }
 
-        DenseVectorN x = new DenseVectorN(embeddingSize);
+        DenseVectorN x = new DenseVectorN((int)embeddingSize);
         ArrayDouble xArray = x.getX();
         while (tokenizer.hasMoreTokens())
         {
@@ -143,7 +161,7 @@ public class SumWordVecDatasetReader implements DatasetReader
 
     public int getEmbeddingSize()
     {
-        return embeddingSize;
+        return (int)embeddingSize;
     }
 
     public void setEmbeddingSize(int embeddingSize)

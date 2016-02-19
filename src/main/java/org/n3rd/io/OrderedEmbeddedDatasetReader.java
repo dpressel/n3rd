@@ -1,8 +1,7 @@
 package org.n3rd.io;
 
-import org.sgdtk.ArrayFloat;
-import org.sgdtk.DenseVectorN;
-import org.sgdtk.FeatureVector;
+import org.sgdtk.*;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -27,6 +26,7 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
     int largestVectorSeen = 0;
     Word2VecModel word2vecModel;
 
+    FeatureNameEncoder labelEncoder;
     private int embeddingSize;
     private int paddingSzPerSide;
     private int lineNumber = 0;
@@ -40,12 +40,13 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
 
     public OrderedEmbeddedDatasetReader(String embeddings) throws IOException
     {
-        this(embeddings, 0);
+        this(embeddings, 0, null);
     }
-    public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide) throws IOException
+    public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide, FeatureNameEncoder labelEncoder) throws IOException
     {
         word2vecModel = Word2VecModel.loadWord2VecModel(embeddings);
         this.paddingSzPerSide = paddingSzPerSide;
+        this.labelEncoder = labelEncoder == null ? new LazyFeatureDictionaryEncoder(): labelEncoder;
 
     }
 
@@ -125,9 +126,23 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
         //System.out.println(lineNumber);
         final StringTokenizer tokenizer = new StringTokenizer(line, " \t");
         final int lastIdxTotal = MAX_FEATURES - 1;
-        String strLabel = tokenizer.nextToken();
-        final int label = Integer.valueOf(strLabel);
 
+        String strLabel = tokenizer.nextToken();
+        Integer label;
+        try
+        {
+            label = Integer.valueOf(strLabel);
+        }
+        catch (NumberFormatException numEx)
+        {
+            label = labelEncoder.indexOf(strLabel);
+            if (label == null)
+            {
+                return next();
+            }
+            // This is due to the zero offset assigned by the lazy encoder, we want 1-based
+            label++;
+        }
 
         int idx = 0;
         List<ArrayFloat> lookup = new ArrayList<ArrayFloat>();

@@ -19,11 +19,11 @@ public class OrderedCharDatasetReader implements DatasetReader
     private int lineNumber = 0;
 
     BufferedReader reader;
-    int HASH_SIZE = 4096;
+    int HASH_SIZE = 8192;
     int MAX_CHARS = 140;
-    int NBITS = 12;
+    int NBITS = 13;
     HashFeatureEncoder hashFeatureEncoder = new HashFeatureEncoder(NBITS);
-    LazyFeatureDictionaryEncoder labelEncoder;
+    FeatureNameEncoder labelEncoder;
 
     @Override
     public int getLargestVectorSeen()
@@ -31,8 +31,13 @@ public class OrderedCharDatasetReader implements DatasetReader
         return largestVectorSeen;
     }
 
+    // Only use this if your data is numerically labeled (which should start at 1)
+    public OrderedCharDatasetReader(int paddingSzPerSide) throws IOException
+    {
+        this(paddingSzPerSide, null);
+    }
     // Label encoder MUST be populated
-    public OrderedCharDatasetReader(int paddingSzPerSide, LazyFeatureDictionaryEncoder labelEncoder) throws IOException
+    public OrderedCharDatasetReader(int paddingSzPerSide, FeatureNameEncoder labelEncoder) throws IOException
     {
         this.labelEncoder = labelEncoder == null ? new LazyFeatureDictionaryEncoder(): labelEncoder;
         this.paddingSzPerSide = paddingSzPerSide;
