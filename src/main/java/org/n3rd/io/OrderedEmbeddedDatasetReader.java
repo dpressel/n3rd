@@ -1,6 +1,8 @@
 package org.n3rd.io;
 
 import org.sgdtk.*;
+import org.sgdtk.io.DatasetReader;
+import org.sgdtk.io.Word2VecModel;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,7 +33,7 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
     private int paddingSzPerSide;
     private int lineNumber = 0;
 
-    int MAX_FEATURES = 4096;
+    int MAX_FEATURES = 140;
     @Override
     public int getLargestVectorSeen()
     {
@@ -40,8 +42,14 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
 
     public OrderedEmbeddedDatasetReader(String embeddings) throws IOException
     {
-        this(embeddings, 0, null);
+        this(embeddings, 0);
     }
+
+    public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide) throws IOException
+    {
+        this(embeddings, paddingSzPerSide, null);
+    }
+
     public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide, FeatureNameEncoder labelEncoder) throws IOException
     {
         word2vecModel = Word2VecModel.loadWord2VecModel(embeddings);

@@ -1,6 +1,7 @@
 package org.n3rd.io;
 
 import org.sgdtk.*;
+import org.sgdtk.io.DatasetReader;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -9,7 +10,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
-import java.util.stream.IntStream;
 
 public class OrderedCharDatasetReader implements DatasetReader
 {

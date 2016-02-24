@@ -1,9 +1,9 @@
 package org.n3rd.io;
 
 import org.n3rd.Tensor;
-import org.n3rd.io.DatasetReader;
 import org.sgdtk.DenseVectorN;
 import org.sgdtk.FeatureVector;
+import org.sgdtk.io.DatasetReader;
 
 import java.io.File;
 import java.io.IOException;
