@@ -5,7 +5,7 @@
     <groupId>org.n3rd</groupId>
     <artifactId>n3rd</artifactId>
     <packaging>jar</packaging>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>n3rd</name>
 
     <dependencies>
@@ -42,7 +42,7 @@
         <dependency>
             <groupId>org.sgdtk</groupId>
             <artifactId>sgdtk</artifactId>
-            <version>0.1.0</version>
+            <version>0.1.1</version>
         </dependency>
 
         <dependency>

@@ -39,4 +39,5 @@ public interface Layer
     double[] getBiasParams();
 
     Tensor getWeightAccum();
+
 }

@@ -2,6 +2,7 @@ package org.n3rd.util;
 
 import org.n3rd.layers.Layer;
 import org.n3rd.layers.SpatialConvolutionalLayer;
+import org.n3rd.layers.SpatialConvolutionalLayerBlas;
 
 import java.util.Map;
 
@@ -21,6 +22,6 @@ public class SpatialConvolutionalLayerFactory implements LayerFactory
         Integer w = (Integer)params.get("w");
         Integer nK = (Integer)params.get("nK");
         
-        return new SpatialConvolutionalLayer(nK, kH, kW, kL, h, w);
+        return new SpatialConvolutionalLayerBlas(nK, kH, kW, kL, h, w);
     }
 }

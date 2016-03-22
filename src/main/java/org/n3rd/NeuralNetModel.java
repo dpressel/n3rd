@@ -3,6 +3,7 @@ package org.n3rd;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.n3rd.layers.DiffersOnTraining;
 import org.n3rd.layers.Layer;
 import org.n3rd.util.Layers;
 import org.sgdtk.*;
@@ -55,6 +56,18 @@ public class NeuralNetModel implements WeightModel
 
     }
 
+    public void setIsTraining(boolean isTraining)
+    {
+        for (Layer layer : layers)
+        {
+            // e.g. Dropout
+            if (layer instanceof DiffersOnTraining)
+            {
+                DiffersOnTraining dot = (DiffersOnTraining)layer;
+                dot.setIsTraining(isTraining);
+            }
+        }
+    }
     // Here ya go!
     public Layer[] getLayers()
     {

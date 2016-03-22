@@ -2,6 +2,7 @@ package org.n3rd.util;
 
 import org.n3rd.layers.Layer;
 import org.n3rd.layers.TemporalConvolutionalLayer;
+import org.n3rd.layers.TemporalConvolutionalLayerBlas;
 
 import java.util.Map;
 
@@ -18,6 +19,10 @@ public class TemporalConvolutionalLayerFactory implements LayerFactory
         Integer kW = (Integer)params.get("kW");
         Integer embedSz = (Integer)params.get("embedSz");
 
+        if (embedSz == null || embedSz <= 1)
+        {
+            return new TemporalConvolutionalLayerBlas(nK, kL, kW);
+        }
         return new TemporalConvolutionalLayer(nK, kL, kW, embedSz);
     }
 }

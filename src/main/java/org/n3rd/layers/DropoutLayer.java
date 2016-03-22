@@ -7,9 +7,10 @@ import java.util.BitSet;
 /**
  * Created by dpressel on 10/26/15.
  */
-public class DropoutLayer extends AbstractLayer
+public class DropoutLayer extends AbstractLayer implements DiffersOnTraining
 {
 
+    double probDropTrain;
     double probDrop;
 
     BitSet bits = new BitSet(1024);
@@ -28,21 +29,17 @@ public class DropoutLayer extends AbstractLayer
     public DropoutLayer(double p)
     {
 
-        this.probDrop = p;
+        this.probDropTrain = probDrop = p;
         output = new Tensor(1);
         grads = new Tensor(1);
     }
 
-
-
-    public void setProbDrop(double p)
+    @Override
+    public void setIsTraining(boolean training)
     {
-        probDrop = p;
+        probDrop = training ? probDropTrain: 0;
     }
-    public double getProbDrop()
-    {
-        return probDrop;
-    }
+
     @Override
     public Tensor forward(Tensor x)
     {
@@ -109,4 +106,5 @@ public class DropoutLayer extends AbstractLayer
         }
 
     }
+
 }

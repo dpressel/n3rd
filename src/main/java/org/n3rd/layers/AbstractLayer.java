@@ -49,4 +49,5 @@ public abstract class AbstractLayer implements Layer
 
     @Override
     public Tensor getWeightAccum() { return weightAccum; }
+
 }
