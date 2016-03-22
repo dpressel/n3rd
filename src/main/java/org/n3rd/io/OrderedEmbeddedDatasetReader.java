@@ -32,7 +32,7 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
     private int embeddingSize;
     private int paddingSzPerSide;
     private int lineNumber = 0;
-
+    private int minSentSz = 1;
     int MAX_FEATURES = 140;
     @Override
     public int getLargestVectorSeen()
@@ -52,9 +52,15 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
 
     public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide, FeatureNameEncoder labelEncoder) throws IOException
     {
+        this(embeddings, paddingSzPerSide, labelEncoder, 1);
+    }
+
+    public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide, FeatureNameEncoder labelEncoder, int minSentSz) throws IOException
+    {
         word2vecModel = Word2VecModel.loadWord2VecModel(embeddings);
         this.paddingSzPerSide = paddingSzPerSide;
         this.labelEncoder = labelEncoder == null ? new LazyFeatureDictionaryEncoder(): labelEncoder;
+        this.minSentSz = minSentSz;
 
     }
 
@@ -175,7 +181,7 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
         }
         int sentenceSz = lookup.size();
 
-        if (sentenceSz < 1)
+        if (sentenceSz < minSentSz)
         {
             return next();
         }
