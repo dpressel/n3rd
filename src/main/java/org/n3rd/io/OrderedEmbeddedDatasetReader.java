@@ -176,7 +176,7 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
             }
 
             if (lastIdxTotal > 0 && idx > lastIdxTotal)
-                continue;
+                break;
 
         }
         int sentenceSz = lookup.size();
