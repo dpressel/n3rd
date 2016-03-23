@@ -32,8 +32,8 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
     private int embeddingSize;
     private int paddingSzPerSide;
     private int lineNumber = 0;
-    private int minSentSz = 1;
-    int MAX_FEATURES = 140;
+    private int minSentSz;
+    private int mxNumToks;
     @Override
     public int getLargestVectorSeen()
     {
@@ -57,10 +57,16 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
 
     public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide, FeatureNameEncoder labelEncoder, int minSentSz) throws IOException
     {
+        this(embeddings, paddingSzPerSide, labelEncoder, minSentSz, 140);
+    }
+
+    public OrderedEmbeddedDatasetReader(String embeddings, int paddingSzPerSide, FeatureNameEncoder labelEncoder, int minSentSz, int mxNumToks) throws IOException
+    {
         word2vecModel = Word2VecModel.loadWord2VecModel(embeddings);
         this.paddingSzPerSide = paddingSzPerSide;
         this.labelEncoder = labelEncoder == null ? new LazyFeatureDictionaryEncoder(): labelEncoder;
         this.minSentSz = minSentSz;
+        this.mxNumToks = mxNumToks;
 
     }
 
@@ -139,7 +145,7 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
 
         //System.out.println(lineNumber);
         final StringTokenizer tokenizer = new StringTokenizer(line, " \t");
-        final int lastIdxTotal = MAX_FEATURES - 1;
+        final int lastIdxTotal = mxNumToks - 1;
 
         String strLabel = tokenizer.nextToken();
         Integer label;
