@@ -209,7 +209,12 @@ public class OrderedEmbeddedDatasetReader implements DatasetReader
         {
             for (int i = 0, ibase = 0; i < sentenceSz; ++i, ibase += embeddingSize)
             {
+
                 double wordVecj = lookup.get(i).get(j);
+                if (Double.isNaN(wordVecj))
+                {
+                    wordVecj = 0.;
+                }
                 x.set(j * pitch + i + paddingSzPerSide, wordVecj);
             }
         }
