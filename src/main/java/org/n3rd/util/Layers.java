@@ -95,7 +95,7 @@ public class Layers
                     Introspector.getBeanInfo(layer.getClass()).getPropertyDescriptors())
             {
                 Method readMethod = propertyDescriptor.getReadMethod();
-                if (FILTER_METHODS.contains(readMethod.getName()))
+                if ((readMethod == null) || FILTER_METHODS.contains(readMethod.getName()))
                 {
                     continue;
                 }
