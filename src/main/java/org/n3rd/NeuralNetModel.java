@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.n3rd.layers.DiffersOnTraining;
 import org.n3rd.layers.Layer;
+import org.n3rd.ops.AdagradUpdate;
+import org.n3rd.ops.Update;
 import org.n3rd.util.Layers;
 import org.sgdtk.*;
 
@@ -28,13 +30,23 @@ public class NeuralNetModel implements WeightModel
     protected Layer[] layers;
     protected boolean scaleOutput = true;
 
-    private static final double EPS = 1e-8;
+    private Update updater;
 
     /**
      * Default constructor, needed to reincarnate models
      */
     public NeuralNetModel()
     {
+    }
+
+    public NeuralNetModel(Layer[] layers, boolean scaleOutput)
+    {
+        this(layers, scaleOutput, new AdagradUpdate(1.0));
+    }
+
+    public NeuralNetModel(Layer[] layers, Update update)
+    {
+        this(layers, true, update);
     }
 
     /**
@@ -45,8 +57,10 @@ public class NeuralNetModel implements WeightModel
      * @param layers A stack of network layers
      * @param scaleOutput Scale and center data?
      */
-    public NeuralNetModel(Layer[] layers, boolean scaleOutput)
+    public NeuralNetModel(Layer[] layers, boolean scaleOutput, Update update)
     {
+        this.updater = update;
+
         this.layers = new Layer[layers.length];
         for (int i = 0; i < layers.length; ++i)
         {
@@ -80,7 +94,31 @@ public class NeuralNetModel implements WeightModel
     {
         return 0;
     }
+/*
+    void sgdWithMomentumUpdate(Layer layer, double eta, double lambda)
+    {
+        Tensor last = layer.getWeightAccum();
+        Tensor weights = layer.getParams();
+        int wSz = weights.size();
 
+        Tensor weightGrads = layer.getParamGrads();
+
+        for (int i = 0; i < wSz; ++i)
+        {
+            double gwi = weightGrads.get(i);
+            double lasti = last.get(i);
+
+            double delta = -eta * gwi + alpha * lasti;
+            last.set(i, delta);
+
+            // weight decay
+            double wi = weights.get(i) * (1 - eta * lambda);
+            wi += delta;
+            weights.set(i, wi);
+            weightGrads.set(i, 0);
+        }
+
+    }
     void adagradUpdate(Layer layer, double eta, double lambda)
     {
         Tensor gg = layer.getWeightAccum();
@@ -98,8 +136,9 @@ public class NeuralNetModel implements WeightModel
 
 
             double gwi = weightGrads.get(i);
-            gg.addi(i, gwi * gwi);
             double ggi = gg.get(i);
+            gg.set(i, alpha * ggi + gwi*gwi);
+            ggi = gg.get(i);
 
             double etaThis = eta / Math.sqrt(ggi + EPS);
             double delta = -etaThis * gwi;
@@ -111,7 +150,7 @@ public class NeuralNetModel implements WeightModel
             weightGrads.set(i, 0);
 
         }
-    }
+    }*/
 
     void updateBiasWeights(Layer layer, double eta)
     {
@@ -133,7 +172,16 @@ public class NeuralNetModel implements WeightModel
         // Sometimes weights can be NULL in layers without parameters, dont touch them!
         if (weights != null)
         {
-            adagradUpdate(layer, eta, lambda);
+            /*
+            if (useAdagrad)
+            {
+                adagradUpdate(layer, eta, lambda);
+            }
+            else
+            {
+                sgdWithMomentumUpdate(layer, eta, lambda);
+            }*/
+            updater.run(layer, eta, lambda);
         }
 
         double[] biasParams = layer.getBiasParams();

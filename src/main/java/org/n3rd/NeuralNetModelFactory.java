@@ -1,13 +1,12 @@
 package org.n3rd;
 
 import org.n3rd.layers.*;
+import org.n3rd.ops.AdagradUpdate;
+import org.n3rd.ops.Update;
 import org.n3rd.util.*;
 import org.sgdtk.Model;
 import org.sgdtk.ModelFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
 
 /**
@@ -41,6 +40,7 @@ public class NeuralNetModelFactory implements ModelFactory
         layerFactories.put(MaxOverTimePoolingLayer.class.getSimpleName(), new MaxOverTimePoolingLayerFactory());
     }
     List<Layer> layers;
+    private Update update;
 /*
     public NeuralNetModelFactory(File file) throws IOException
     {
@@ -71,8 +71,22 @@ public class NeuralNetModelFactory implements ModelFactory
             LayerFactory layerFactory = layerFactories.get(layerConfig.get(TYPE_NAME));
             layers.add(layerFactory.newLayer(layerConfig));
         }
+        Boolean adagradOrNull = (Boolean)config.get("adagrad");
+        Double alphaOrNull = (Double)config.get("alpha");
 
+        boolean useAdagrad = adagradOrNull == null ? true: adagradOrNull;
+
+        if (useAdagrad)
+        {
+            double alpha = alphaOrNull == null ? 1.0 : alphaOrNull;
+            setUpdate(new AdagradUpdate(alpha));
+        }
+        else
+        {
+            double alpha = alphaOrNull == null ? 0.0 : alphaOrNull;
+        }
     }
+
     public NeuralNetModelFactory()
     {
         this.layers = new ArrayList<Layer>();
@@ -97,12 +111,23 @@ public class NeuralNetModelFactory implements ModelFactory
         {
             scale = true;
         }
-        return new NeuralNetModel(layers.toArray(new Layer[layers.size()]), scale);
+
+        return new NeuralNetModel(layers.toArray(new Layer[layers.size()]), scale, getUpdate() == null ? new AdagradUpdate(1.0): getUpdate());
     }
 
     public NeuralNetModelFactory addLayer(Layer layer)
     {
         layers.add(layer);
         return this;
+    }
+
+    public Update getUpdate()
+    {
+        return update;
+    }
+
+    public void setUpdate(Update update)
+    {
+        this.update = update;
     }
 }
